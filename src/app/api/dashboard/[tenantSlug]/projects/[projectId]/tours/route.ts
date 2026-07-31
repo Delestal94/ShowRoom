@@ -25,57 +25,44 @@ export async function POST(
       return Response.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const kind = (formData.get('kind') as string) || 'image'
-    const unitId = (formData.get('unitId') as string) || undefined
+    const body = await request.json()
+    const { kind, unitId, storageKey, cdnUrl } = body
 
-    if (!file) {
-      return Response.json({ error: 'No file provided' }, { status: 400 })
-    }
-
-    // Validate file size
-    const maxSize = kind === 'glb-model' ? 50 * 1024 * 1024 : 100 * 1024 * 1024
-    if (file.size > maxSize) {
+    if (!kind || !storageKey || !cdnUrl) {
       return Response.json(
-        { error: `File too large (max ${maxSize / 1024 / 1024}MB)` },
-        { status: 413 }
+        { error: 'Missing required fields: kind, storageKey, cdnUrl' },
+        { status: 400 }
       )
     }
 
-    // For MVP: generate a unique storage key
-    // In production, this would upload to R2 and get back a CDN URL
-    const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(7)
-    const storageKey = `tours/${tenant.id}/${params.projectId}/${timestamp}-${randomId}-${file.name}`
+    // Validate tour kind
+    const validKinds = ['360', 'glb-model', 'drone-video', 'image']
+    if (!validKinds.includes(kind)) {
+      return Response.json({ error: 'Invalid tour kind' }, { status: 400 })
+    }
 
-    // Create tour record in database with processing status
+    // Create tour record in database with CDN URL ready
     const tour = await createTour(tenant.id, params.projectId, {
       unitId,
       kind: kind as any,
       storageKey,
-      cdnUrl: undefined, // Will be set once R2 upload completes
+      cdnUrl,
       metadata: {
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
         uploadedAt: new Date().toISOString(),
       },
     })
-
-    // TODO: In Phase 2, upload to R2 and update tour.cdnUrl
-    // For now, tours are stored locally and marked as processing
 
     return Response.json({
       success: true,
       tourId: tour.id,
       storageKey,
-      message: 'Tour uploaded successfully. Processing...',
+      cdnUrl,
+      message: 'Tour uploaded successfully',
     })
   } catch (error) {
-    console.error('Error uploading tour:', error)
+    console.error('Error creating tour:', error)
     return Response.json(
-      { error: 'Failed to upload tour' },
+      { error: 'Failed to create tour' },
       { status: 500 }
     )
   }

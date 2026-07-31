@@ -60,47 +60,84 @@ export function UploadTourForm({
     setProgress(0)
 
     try {
-      // For MVP: upload directly via FormData
-      // In production, we'd use presigned R2 URLs
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('kind', kind)
-      if (unitId) formData.append('unitId', unitId)
+      // Step 1: Get presigned URL from our API
+      const presignRes = await fetch('/api/uploads/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantSlug,
+          projectId,
+          tourKind: kind,
+          fileName: file.name,
+          contentType: file.type,
+        }),
+      })
 
-      const xhr = new XMLHttpRequest()
+      if (!presignRes.ok) {
+        setError('Failed to prepare upload')
+        setLoading(false)
+        return
+      }
 
-      // Track upload progress
-      xhr.upload.addEventListener('progress', (e) => {
+      const { presignedUrl, storageKey, cdnUrl } = await presignRes.json()
+
+      // Step 2: Upload directly to R2 using presigned URL
+      const uploadXhr = new XMLHttpRequest()
+
+      uploadXhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           setProgress(Math.round((e.loaded / e.total) * 100))
         }
       })
 
-      // Handle completion
-      xhr.addEventListener('load', async () => {
-        if (xhr.status === 200) {
-          setFile(null)
-          setProgress(0)
+      uploadXhr.addEventListener('load', async () => {
+        if (uploadXhr.status === 200) {
+          // Step 3: Create tour record in our DB with CDN URL
+          try {
+            const tourRes = await fetch(
+              `/api/dashboard/${tenantSlug}/projects/${projectId}/tours`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  kind,
+                  unitId,
+                  storageKey,
+                  cdnUrl,
+                }),
+              }
+            )
 
-          // Refresh page to show new tour
-          if (onSuccess) onSuccess()
-          router.refresh()
+            if (tourRes.ok) {
+              setFile(null)
+              setProgress(0)
+              if (onSuccess) onSuccess()
+              router.refresh()
+            } else {
+              setError('Failed to save tour metadata')
+            }
+          } catch (err) {
+            setError('Failed to save tour')
+          }
         } else {
-          setError('Upload failed. Please try again.')
+          setError(`Upload failed (HTTP ${uploadXhr.status})`)
         }
         setLoading(false)
       })
 
-      xhr.addEventListener('error', () => {
-        setError('Network error. Please try again.')
+      uploadXhr.addEventListener('error', () => {
+        setError('Upload failed. Please try again.')
         setLoading(false)
       })
 
-      xhr.open(
-        'POST',
-        `/api/dashboard/${tenantSlug}/projects/${projectId}/tours`
-      )
-      xhr.send(formData)
+      uploadXhr.addEventListener('abort', () => {
+        setError('Upload cancelled')
+        setLoading(false)
+      })
+
+      uploadXhr.open('PUT', presignedUrl)
+      uploadXhr.setRequestHeader('Content-Type', file.type)
+      uploadXhr.send(file)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
       setLoading(false)
