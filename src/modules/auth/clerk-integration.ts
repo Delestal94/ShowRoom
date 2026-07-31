@@ -1,7 +1,7 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
 import { db } from '@/server/db/client'
 import { eq, and } from 'drizzle-orm'
-import { users, memberships, tenants } from '@/server/db/schema'
+import { users, memberships } from '@/server/db/schema'
 
 export async function getCurrentUser() {
   const { userId, sessionId } = await auth()

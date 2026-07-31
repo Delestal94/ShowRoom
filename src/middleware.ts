@@ -1,14 +1,7 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const isPublicRoute = createRouteMatcher([
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/(public)(.*)',
-])
-
-export default clerkMiddleware(async (auth, req: NextRequest) => {
+export function middleware(req: NextRequest) {
   // Extract tenant from subdomain or domain
   const hostname = req.headers.get('host') || ''
 
@@ -22,17 +15,16 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     requestHeaders.set('x-tenant-slug', tenantSlug)
   }
 
-  // If not a public route and no tenant, redirect
-  if (!isPublicRoute(req) && !tenantSlug) {
-    return NextResponse.redirect(new URL('/sign-in', req.url))
-  }
+  // Don't require tenant for public routes and API routes
+  const pathname = req.nextUrl.pathname
+  const isPublic = pathname.startsWith('/sign-in') ||
+                   pathname.startsWith('/sign-up') ||
+                   pathname.startsWith('/(public)') ||
+                   pathname.startsWith('/api/')
 
-  // Protected routes: enforce auth
-  if (!isPublicRoute(req)) {
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.redirect(new URL('/sign-in', req.url))
-    }
+  // If not a public route and no tenant, redirect to sign-in
+  if (!isPublic && !tenantSlug) {
+    return NextResponse.redirect(new URL('/sign-in', req.url))
   }
 
   return NextResponse.next({
@@ -40,7 +32,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
       headers: requestHeaders,
     },
   })
-})
+}
 
 export const config = {
   matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],

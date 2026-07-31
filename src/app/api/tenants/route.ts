@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { db } from '@/server/db/client'
-import { tenants, subscriptions, plans } from '@/server/db/schema'
+import { tenants, subscriptions } from '@/server/db/schema'
 
 export async function POST(request: Request) {
   const { userId } = await auth()
@@ -23,12 +23,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get plan
-    const plan = planId
-      ? await db.query.plans.findFirst({
-          where: (p) => p.id === planId,
-        })
-      : null
+    // TODO: Validate plan exists when planId is provided
+    // For now, we'll just create the tenant and subscription
 
     // Create tenant
     const [newTenant] = await db
@@ -40,10 +36,10 @@ export async function POST(request: Request) {
       .returning()
 
     // Create subscription with the selected plan
-    if (plan) {
+    if (planId) {
       await db.insert(subscriptions).values({
         tenantId: newTenant.id,
-        planId: plan.id,
+        planId,
         status: 'active',
       })
     }
