@@ -2,6 +2,7 @@ import { db } from '@/server/db/client'
 import { projects } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { listToursByProject } from '@/modules/tours/tour-service'
+import { TourViewer } from '@/components/tour-viewer'
 
 export default async function StorefrontPage({
   params,
@@ -68,39 +69,10 @@ export default async function StorefrontPage({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* 3D Viewer */}
             <div className="lg:col-span-2">
-              <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                  <div className="text-center">
-                    <p className="text-gray-600 font-medium">3D Viewer</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {readyTours.length} tour{readyTours.length !== 1 ? 's' : ''} available
-                    </p>
-                  </div>
-                </div>
+              <div style={{ aspectRatio: '16/9' }}>
+                <TourViewer tours={readyTours as any} />
               </div>
 
-              {/* Tour List */}
-              <div className="mt-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Tours</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {readyTours.map((tour) => (
-                    <div
-                      key={tour.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded bg-blue-100 flex items-center justify-center">
-                          <TourIcon kind={tour.kind} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 capitalize">{tour.kind}</p>
-                          <p className="text-xs text-gray-500">Ready to view</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Unit Listing */}
@@ -143,17 +115,3 @@ export default async function StorefrontPage({
   )
 }
 
-function TourIcon({ kind }: { kind: string }) {
-  switch (kind) {
-    case '360':
-      return <span className="text-xl">🔄</span>
-    case 'glb-model':
-      return <span className="text-xl">🏢</span>
-    case 'drone-video':
-      return <span className="text-xl">🚁</span>
-    case 'image':
-      return <span className="text-xl">📷</span>
-    default:
-      return <span className="text-xl">📸</span>
-  }
-}

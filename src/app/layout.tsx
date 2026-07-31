@@ -15,6 +15,18 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
+        <head>
+          {/* Pannellum CSS for 360 viewer */}
+          <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css"
+          />
+          {/* Pannellum JS for 360 viewer */}
+          <script
+            async
+            src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"
+          ></script>
+        </head>
         <body>{children}</body>
       </html>
     </ClerkProvider>

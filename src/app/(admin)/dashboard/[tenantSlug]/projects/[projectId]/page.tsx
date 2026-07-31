@@ -96,7 +96,7 @@ export default async function ProjectDetailPage({
             <h2 className="text-lg font-semibold text-gray-900">Tours</h2>
             <Link
               href={`/dashboard/${params.tenantSlug}/projects/${params.projectId}/tours/new`}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+              className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition"
             >
               + Upload Tour
             </Link>
