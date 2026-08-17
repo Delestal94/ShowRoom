@@ -1,9 +1,10 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import Image from 'next/image'
 import { GLBViewer } from './viewer3d/glb-viewer'
 import { PanoramaViewer } from './viewer360/panorama-viewer'
+import { trackEvent } from '@/lib/analytics'
 
 interface Tour {
   id: string
@@ -16,6 +17,7 @@ interface Tour {
 interface TourViewerProps {
   tours: Tour[]
   selectedTourId?: string
+  projectSlug?: string
 }
 
 function LoadingFallback() {
@@ -29,9 +31,22 @@ function LoadingFallback() {
   )
 }
 
-export function TourViewer({ tours, selectedTourId }: TourViewerProps) {
+export function TourViewer({ tours, selectedTourId, projectSlug }: TourViewerProps) {
   const [currentTourId, setCurrentTourId] = useState(selectedTourId || tours[0]?.id)
   const currentTour = tours.find((t) => t.id === currentTourId)
+
+  useEffect(() => {
+    if (projectSlug && currentTourId) {
+      trackEvent({
+        type: 'tour_view',
+        projectSlug,
+        tourId: currentTourId,
+        metadata: {
+          tour_kind: currentTour?.kind,
+        },
+      })
+    }
+  }, [currentTourId, projectSlug, currentTour])
 
   if (!currentTour || !currentTour.cdnUrl) {
     return (

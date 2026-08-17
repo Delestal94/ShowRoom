@@ -5,6 +5,7 @@ import { TourViewer } from './tour-viewer'
 import { UnitFilters } from './unit-filters'
 import { UnitGrid } from './unit-grid'
 import { ContactForm } from './contact-form'
+import { trackEvent } from '@/lib/analytics'
 
 interface Tour {
   id: string
@@ -54,7 +55,7 @@ export function StorefrontClient({
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState<Record<string, any>>({})
 
-  // Load filter options on mount
+  // Load filter options on mount and track page view
   useEffect(() => {
     const loadFilterOptions = async () => {
       try {
@@ -70,6 +71,15 @@ export function StorefrontClient({
     }
 
     loadFilterOptions()
+
+    // Track page view
+    trackEvent({
+      type: 'page_view',
+      projectSlug,
+      metadata: {
+        page: 'storefront',
+      },
+    })
   }, [projectSlug])
 
   // Fetch units when filters change
@@ -122,7 +132,7 @@ export function StorefrontClient({
           <div className="lg:col-span-2">
             {readyTours.length > 0 ? (
               <div style={{ aspectRatio: '16/9' }}>
-                <TourViewer tours={readyTours as any} />
+                <TourViewer tours={readyTours as any} projectSlug={projectSlug} />
               </div>
             ) : (
               <div className="flex items-center justify-center w-full bg-gray-100 rounded-lg border-2 border-gray-200"
@@ -160,7 +170,7 @@ export function StorefrontClient({
             </p>
           </div>
 
-          <UnitGrid units={units} loading={loading} />
+          <UnitGrid units={units} loading={loading} projectSlug={projectSlug} />
         </div>
       </main>
     </div>

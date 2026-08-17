@@ -1,5 +1,7 @@
 'use client'
 
+import { trackEvent } from '@/lib/analytics'
+
 function formatPrice(value?: string | number): string {
   if (!value) return '$0'
   const num = typeof value === 'string' ? parseFloat(value) : value
@@ -31,9 +33,10 @@ interface UnitGridProps {
   units: Unit[]
   loading?: boolean
   onUnitSelect?: (unit: Unit) => void
+  projectSlug?: string
 }
 
-export function UnitGrid({ units, loading, onUnitSelect }: UnitGridProps) {
+export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -58,7 +61,20 @@ export function UnitGrid({ units, loading, onUnitSelect }: UnitGridProps) {
       {units.map((unit) => (
         <div
           key={unit.id}
-          onClick={() => onUnitSelect?.(unit)}
+          onClick={() => {
+            if (projectSlug) {
+              trackEvent({
+                type: 'unit_view',
+                projectSlug,
+                unitId: unit.id,
+                metadata: {
+                  unit_code: unit.code,
+                  unit_price: unit.price,
+                },
+              })
+            }
+            onUnitSelect?.(unit)
+          }}
           className="bg-white rounded-lg shadow hover:shadow-lg transition border border-gray-200 hover:border-blue-300 overflow-hidden cursor-pointer"
         >
           {/* Header */}
