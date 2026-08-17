@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { TourViewer } from './tour-viewer'
 import { UnitFilters } from './unit-filters'
 import { UnitGrid } from './unit-grid'
+import { ContactForm } from './contact-form'
 
 interface Tour {
   id: string
@@ -133,9 +134,11 @@ export function StorefrontClient({
             )}
           </div>
 
-          {/* Right: Filters & Quick Info */}
+          {/* Right: Contact Form & Filters */}
           <aside>
-            <div className="sticky top-24">
+            <div className="sticky top-24 space-y-6">
+              <ContactForm projectSlug={projectSlug} projectId={projectSlug} />
+
               {filterOptions && (
                 <UnitFilters
                   onFiltersChange={setFilters}

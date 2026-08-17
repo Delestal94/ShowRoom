@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getTenantFromSlug } from '@/modules/tenancy/tenant-context'
 import { listProjects } from '@/modules/projects/project-service'
+import { getLeadStats } from '@/modules/leads/lead-service'
 import Link from 'next/link'
 
 export default async function DashboardPage({
@@ -20,7 +21,10 @@ export default async function DashboardPage({
     return <div>Tenant not found</div>
   }
 
-  const projects = await listProjects(tenant.id)
+  const [projects, leadStats] = await Promise.all([
+    listProjects(tenant.id),
+    getLeadStats(tenant.id),
+  ])
 
   return (
     <div>
@@ -29,10 +33,21 @@ export default async function DashboardPage({
         <p className="text-gray-600">Welcome back to ShowRoom</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
         <StatCard label="Projects" value={projects.length} />
         <StatCard label="Units" value={projects.reduce((sum, p) => sum + (p.units?.length || 0), 0)} />
         <StatCard label="Tours" value={0} />
+        <Link href={`/dashboard/${params.tenantSlug}/crm`}>
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer">
+            <p className="text-sm font-medium text-gray-600">Leads</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{leadStats.total}</p>
+            {leadStats.new > 0 && (
+              <p className="text-xs text-blue-600 mt-2">
+                {leadStats.new} new
+              </p>
+            )}
+          </div>
+        </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow">
