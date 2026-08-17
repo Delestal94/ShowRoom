@@ -2,10 +2,9 @@ import type { Config } from 'drizzle-kit'
 
 export default {
   schema: './src/server/db/schema.ts',
-  out: './src/server/db/migrations',
+  out: './drizzle',
   driver: 'pg',
   dbCredentials: {
     connectionString: process.env.DATABASE_URL!,
   },
-  tablesFilter: ['!pg_*'],
 } satisfies Config

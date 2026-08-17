@@ -1,12 +1,12 @@
 import { headers } from 'next/headers'
 import { getTenantFromSlug } from '@/modules/tenancy/tenant-context'
-import { getR2Client } from '@/modules/storage/r2-client'
+import { generateUploadUrl, createBucketIfNotExists } from '@/modules/storage/supabase-client'
 import { getProject } from '@/modules/projects/project-service'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { tenantSlug, projectId, tourKind, fileName, contentType } = body
+    const { tenantSlug, projectId, tourKind, fileName } = body
 
     if (!tenantSlug || !projectId || !tourKind || !fileName) {
       return Response.json(
@@ -47,29 +47,19 @@ export async function POST(request: Request) {
       'drone-video': 500 * 1024 * 1024, // 500MB
     }
 
-    // Get R2 client
-    const r2 = getR2Client()
+    // Ensure bucket exists
+    await createBucketIfNotExists()
 
-    // Build storage key
-    const storageKey = r2.buildStorageKey(
-      tenant.id,
+    // Generate upload URL with Supabase
+    const { uploadUrl, storageKey, cdnUrl } = await generateUploadUrl({
+      tenantId: tenant.id,
       projectId,
-      tourKind,
-      fileName
-    )
-
-    // Generate presigned URL (valid for 1 hour)
-    const presignedUrl = r2.generatePresignedUrl(
-      storageKey,
-      contentType || 'application/octet-stream',
-      3600
-    )
-
-    // Get CDN URL for later
-    const cdnUrl = r2.getCdnUrl(storageKey)
+      fileName,
+      fileType: tourKind as 'glb' | '360' | 'video' | 'image',
+    })
 
     return Response.json({
-      presignedUrl,
+      presignedUrl: uploadUrl,
       storageKey,
       cdnUrl,
       maxSize: maxSizes[tourKind],
