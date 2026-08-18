@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
-import { createUnit, updateUnit, deleteUnit } from '@/modules/units/unit-service'
+import {
+  createUnit,
+  createUnitsBulk,
+  updateUnit,
+  deleteUnit,
+} from '@/modules/units/unit-service'
 import { UNIT_STATUSES, type UnitStatus } from '@/modules/units/unit-constants'
 
 export interface UnitActionState {
@@ -223,9 +228,9 @@ export async function importUnitsAction(
   }
 
   try {
-    for (const row of rows) {
-      await createUnit(tenant.tenantId, projectId, row)
-    }
+    // One statement in one transaction: a partial import that leaves half
+    // the tower loaded is worse than a clean failure the user can retry.
+    await createUnitsBulk(tenant.tenantId, projectId, rows)
   } catch (error) {
     console.error('Error importing units:', error)
     return { error: 'Falló la importación. Revisá el formato de las filas.' }

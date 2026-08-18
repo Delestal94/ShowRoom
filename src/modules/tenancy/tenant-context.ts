@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { db } from '@/server/db/client'
+import { appDb as db } from '@/server/db/tenant-db'
 import { eq } from 'drizzle-orm'
 import { tenants } from '@/server/db/schema'
 

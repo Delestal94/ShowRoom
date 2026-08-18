@@ -1,6 +1,6 @@
 import { recordEvent } from '@/modules/analytics/analytics-service'
 import { projects } from '@/server/db/schema'
-import { db } from '@/server/db/client'
+import { publicDb as db } from '@/server/db/tenant-db'
 import { eq } from 'drizzle-orm'
 
 export async function POST(request: Request) {

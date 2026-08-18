@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
-import { db } from '@/server/db/client'
+import { publicDb as db } from '@/server/db/tenant-db'
 import { eq } from 'drizzle-orm'
 import { subscriptions } from '@/server/db/schema'
 

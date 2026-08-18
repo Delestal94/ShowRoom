@@ -1,4 +1,4 @@
-import { db } from '@/server/db/client'
+import { publicDb as db } from '@/server/db/tenant-db'
 import { units } from '@/server/db/schema'
 import { eq, and, gte, lte, ilike } from 'drizzle-orm'
 

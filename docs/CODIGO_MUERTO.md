@@ -21,7 +21,7 @@ Definidas en `src/server/db/schema.ts`, con `relations()` y todo, pero **cero** 
 
 ## 2. Funciones que existen pero nadie llama
 
-- **`getScopedDbClient()`** — `src/server/db/client.ts:12`. Hace `SET LOCAL app.tenant_id` para que las políticas RLS funcionen. Nadie la importa. Es la pieza que falta para que `rls-policies.sql` sirva de algo (ver sección RLS abajo).
+- ~~**`getScopedDbClient()`**~~ — resuelto. `src/server/db/client.ts` entero se borró: su reemplazo es `withTenant()`/`withUser()` en `src/server/db/tenant-db.ts`, que sí se usa en todos los servicios.
 - **`getTenantFromRequestHost()`** — `src/modules/tenancy/tenant-context.ts`. Pensada para resolver tenant por subdominio/dominio custom en el storefront público. El middleware ya inyecta `x-tenant-slug`, pero ningún Server Component la lee todavía — el storefront público resuelve todo por slug de proyecto, no por tenant.
 - **`getUnitPopularity`, `getEventStats`, `getHeatmapData`** — se llaman desde `/dashboard/analytics`, así que estas sí están vivas (se arreglaron sus bugs de SQL el 2026-08-18).
 
@@ -29,7 +29,7 @@ Definidas en `src/server/db/schema.ts`, con `relations()` y todo, pero **cero** 
 
 ## 3. Rutas API huérfanas
 
-- **`POST /api/tenants`** (`src/app/api/tenants/route.ts`) — nadie la llama desde el frontend. La creación de tenant ahora es automática en `getCurrentTenant()` (primer login). Esta ruta quedó de la era en la que se pensaba crear tenants manualmente. Si no hay plan de exponerla a un super-admin, se puede borrar.
+- ~~**`POST /api/tenants`**~~ — borrada (2026-08-18). No la llamaba nadie; la creación de tenant es automática en `getCurrentTenant()` al primer login.
 
 ---
 
@@ -45,27 +45,28 @@ Definidas en `src/server/db/schema.ts`, con `relations()` y todo, pero **cero** 
 
 Del plan original (`wiggly-percolating-marble.md`), estas piezas de stack **nunca se instalaron**, aunque el `.env.local` tiene variables para una de ellas:
 
-- **Inngest** (jobs en background) — `.env.local` tiene `INNGEST_EVENT_KEY=dummy_key`, pero el paquete no está en `package.json`. Nada corre en background hoy: si subís un GLB de 500MB, no hay ningún paso de "procesamiento" real, el tour queda en `status: 'processing'` para siempre (nadie lo pasa a `'ready'`).
+- **Inngest** (jobs en background) — `.env.local` tiene `INNGEST_EVENT_KEY=dummy_key`, pero el paquete no está en `package.json`. Nada corre en background. El síntoma visible (tours colgados en `processing` para siempre) se resolvió creándolos directamente en `ready`, ya que no hay procesamiento real que esperar. Inngest recién haría falta si se agrega compresión Draco, thumbnails o similar.
 - **Upstash Redis** (cache/rate limiting) — no instalado, no usado. El middleware no tiene rate limiting.
 - **Vercel Edge Config** (cache de resolución de tenant) — el plan lo proponía para no pegarle a Postgres en cada request; hoy `getTenantFromSlug()` tiene un cache en memoria simple (`Map`) que se resetea en cada cold start de la función serverless, así que en la práctica no cachea nada entre requests.
 
 ---
 
-## 6. RLS: la deuda más grande
+## 6. RLS — RESUELTO (2026-08-18)
 
-Esto ya se documentó en la revisión anterior pero vale repetirlo porque es el hallazgo más serio del proyecto:
+Estaba listado como la deuda más grande del proyecto. Ya está implementado y verificado.
 
-- `src/server/db/rls-policies.sql` existe y define políticas para las 14 tablas tenant-scoped.
-- **En la base real, RLS está deshabilitada en las 14 tablas y hay 0 políticas creadas.**
-- `getScopedDbClient()` — la función que setea `app.tenant_id` para que esas políticas funcionen — nunca se llama (ver sección 2).
-- Todas las queries del código (servicios en `src/modules/*/`) usan el cliente `db` plano y confían en que cada `where` incluya `tenantId` a mano.
+Al implementarlo apareció algo que no estaba en el diagnóstico original y que era peor de lo que parecía: **aplicar `rls-policies.sql` tal como estaba escrito no habría protegido nada**. El rol con el que se conectaba la app (`neondb_owner`) tiene `BYPASSRLS` y además es dueño de las 14 tablas — dos razones independientes por las que Postgres ignora las políticas. Las policies habrían quedado creadas, `rowsecurity` habría dicho `true`, y cada query habría seguido viendo todos los tenants.
 
-**Por qué no se arregló todavía**: si hoy se habilita RLS sin antes migrar todo a `getScopedDbClient()`, `current_setting('app.tenant_id')` devuelve NULL en cada query y **ninguna fila se devuelve** — la app entera deja de funcionar. Es un cambio que requiere:
-1. Migrar cada servicio (`project-service`, `unit-service`, `lead-service`, `tour-service`, `analytics-service`) a usar el cliente scoped en vez de `db` directo.
-2. Habilitar RLS tabla por tabla, verificando después de cada una.
-3. Un test automatizado de cruce entre tenants (crear tenant A y B, confirmar que A no puede leer datos de B ni con una query manual).
+Lo que se hizo:
 
----
+- Rol dedicado `showroom_app`, sin `BYPASSRLS` y sin ser dueño de las tablas (Neon no permite quitarle `BYPASSRLS` al rol dueño, así que un rol nuevo era la única vía). La app runtime se conecta con este rol vía `DATABASE_URL_APP`; `DATABASE_URL` queda sólo para migraciones.
+- `FORCE ROW LEVEL SECURITY` en las 12 tablas tenant-scoped.
+- Políticas reescritas: las originales habrían roto el storefront público, la captura de leads, la ingesta de analytics y el login. Ahora modelan la realidad — un proyecto publicado *es* público, y el formulario de contacto *es* anónimo.
+- `withTenant()` / `withUser()` en `src/server/db/tenant-db.ts`: cada operación corre en una transacción con `set_config(..., true)`, que es transaction-local y por lo tanto no se filtra entre requests que reusan la misma conexión del pool.
+- Todos los servicios migrados a estos helpers.
+- `scripts/test-tenant-isolation.mjs`: suite que se conecta con el rol de la app e intenta activamente cruzar datos entre tenants. 15/15.
+
+Si `DATABASE_URL_APP` no está seteada, la app cae al rol dueño y sigue funcionando, pero **sin RLS** — ese caso emite un warning explícito en producción.
 
 ## 7. Archivos de documentación desactualizados
 

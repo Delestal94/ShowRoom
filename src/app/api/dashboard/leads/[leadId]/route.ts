@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/server/db/client'
-import { leads } from '@/server/db/schema'
-import { eq, and } from 'drizzle-orm'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
+import { updateLead } from '@/modules/leads/lead-service'
 
-const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost']
+const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'] as const
 
 export async function PATCH(
   request: Request,
@@ -23,13 +21,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   }
 
-  // Scoping the WHERE by tenantId is what makes this tenant-safe: a lead ID
-  // from another tenant simply won't match and falls through to 404.
-  const [updated] = await db
-    .update(leads)
-    .set({ status, updatedAt: new Date() })
-    .where(and(eq(leads.id, params.leadId), eq(leads.tenantId, tenant.tenantId)))
-    .returning()
+  // updateLead scopes by tenantId and runs under RLS, so a lead id from
+  // another tenant matches nothing and falls through to 404.
+  const updated = await updateLead(tenant.tenantId, params.leadId, { status })
 
   if (!updated) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })

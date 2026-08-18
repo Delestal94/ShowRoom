@@ -1,4 +1,4 @@
-import { db } from '@/server/db/client'
+import { publicDb as db } from '@/server/db/tenant-db'
 import { projects } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { searchUnits, getFilterOptions } from '@/modules/units/unit-filters'

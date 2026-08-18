@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
-import { db } from '@/server/db/client'
+import { publicDb as db } from '@/server/db/tenant-db'
 import { projects } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
-import { listToursByProject } from '@/modules/tours/tour-service'
+import { listPublicToursByProject } from '@/modules/tours/tour-service'
 import { StorefrontClient } from '@/components/storefront-client'
 
 export default async function StorefrontPage({
@@ -44,7 +44,7 @@ export default async function StorefrontPage({
   }
 
   // Fetch tours for this project
-  const tours = await listToursByProject(project.tenantId, project.id)
+  const tours = await listPublicToursByProject(project.id)
 
   return (
     <StorefrontClient

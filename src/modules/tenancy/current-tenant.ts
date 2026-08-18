@@ -1,7 +1,8 @@
-import { db } from '@/server/db/client'
+import { randomUUID } from 'node:crypto'
 import { users, memberships, tenants } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUser } from '@/lib/supabase/server'
+import { appDb, withUser } from '@/server/db/tenant-db'
 
 export interface CurrentTenant {
   tenantId: string
@@ -19,40 +20,31 @@ function slugify(input: string): string {
     .slice(0, 40)
 }
 
-async function uniqueSlug(base: string): Promise<string> {
-  const root = slugify(base) || 'tenant'
-  let candidate = root
-  let n = 1
-
-  // Small table, low contention — a loop is simpler than a retry-on-conflict.
-  while (await db.query.tenants.findFirst({ where: eq(tenants.slug, candidate) })) {
-    n += 1
-    candidate = `${root}-${n}`
-  }
-
-  return candidate
-}
-
 /**
  * Resolves the signed-in Supabase user to their ShowRoom tenant, creating
  * the `users` / `tenants` / `memberships` rows on first login.
  *
- * One tenant per account for now — good enough for a solo developer or a
- * single admin per developer. Multi-user tenants come later via invites.
+ * One tenant per account for now — multi-user tenants come later via invites.
  */
 export async function getCurrentTenant(): Promise<CurrentTenant | null> {
   const authUser = await getUser()
   if (!authUser) return null
 
-  const existing = await db.query.users.findFirst({
+  // `users` is not tenant-scoped and carries no RLS, so it's safe to read
+  // before any tenant context exists.
+  const existing = await appDb.query.users.findFirst({
     where: eq(users.authUserId, authUser.id),
   })
 
   if (existing) {
-    const membership = await db.query.memberships.findFirst({
-      where: eq(memberships.userId, existing.id),
-      with: { tenant: true },
-    })
+    // Membership lookup runs under app.user_id: at this point we still
+    // don't know the tenant, which is exactly what we're resolving.
+    const membership = await withUser(existing.id, (tx) =>
+      tx.query.memberships.findFirst({
+        where: eq(memberships.userId, existing.id),
+        with: { tenant: true },
+      })
+    )
     if (!membership) return null
 
     return {
@@ -64,35 +56,54 @@ export async function getCurrentTenant(): Promise<CurrentTenant | null> {
     }
   }
 
-  // First login: provision a tenant + admin membership for this account.
+  // First login: provision a tenant and an admin membership.
   const emailLocalPart = authUser.email?.split('@')[0] ?? 'mi-inmobiliaria'
-  const slug = await uniqueSlug(emailLocalPart)
+  const root = slugify(emailLocalPart) || 'inmobiliaria'
 
-  return db.transaction(async (tx) => {
-    const [newUser] = await tx
-      .insert(users)
-      .values({ email: authUser.email ?? '', authUserId: authUser.id })
-      .returning()
+  const [newUser] = await appDb
+    .insert(users)
+    .values({ email: authUser.email ?? '', authUserId: authUser.id })
+    .returning()
 
-    const [tenant] = await tx
-      .insert(tenants)
-      .values({ name: emailLocalPart, slug })
-      .returning()
+  // RLS hides other tenants' rows, so a "is this slug taken?" query would
+  // always come back empty. The unique constraint is the real arbiter —
+  // retry against it rather than pretending to check first.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const slug = attempt === 0 ? root : `${root}-${attempt + 1}`
+    const tenantId = randomUUID()
 
-    await tx.insert(memberships).values({
-      userId: newUser.id,
-      tenantId: tenant.id,
-      role: 'tenant_admin',
-    })
+    try {
+      return await withUser(
+        newUser.id,
+        async (tx) => {
+          const [tenant] = await tx
+            .insert(tenants)
+            .values({ id: tenantId, name: emailLocalPart, slug })
+            .returning()
 
-    return {
-      tenantId: tenant.id,
-      tenantSlug: tenant.slug,
-      tenantName: tenant.name,
-      userId: newUser.id,
-      role: 'tenant_admin',
+          await tx.insert(memberships).values({
+            userId: newUser.id,
+            tenantId: tenant.id,
+            role: 'tenant_admin',
+          })
+
+          return {
+            tenantId: tenant.id,
+            tenantSlug: tenant.slug,
+            tenantName: tenant.name,
+            userId: newUser.id,
+            role: 'tenant_admin',
+          }
+        },
+        tenantId
+      )
+    } catch (error: any) {
+      if (error?.code !== '23505') throw error
+      // Slug collision — next iteration tries a suffixed variant.
     }
-  })
+  }
+
+  throw new Error('Could not allocate a unique tenant slug')
 }
 
 /** Same as getCurrentTenant(), but throws for routes that require a tenant. */

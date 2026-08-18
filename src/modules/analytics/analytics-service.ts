@@ -1,4 +1,4 @@
-import { db } from '@/server/db/client'
+import { withTenant, publicDb } from '@/server/db/tenant-db'
 import { analyticsEvents } from '@/server/db/schema'
 import { eq, and, gte, sql } from 'drizzle-orm'
 
@@ -12,7 +12,9 @@ export interface RecordEventInput {
 }
 
 export async function recordEvent(input: RecordEventInput) {
-  const [event] = await db
+  // Ingest comes from the public viewer with no session; the
+  // analytics_events_insert policy allows anonymous writes on purpose.
+  const [event] = await publicDb
     .insert(analyticsEvents)
     .values({
       tenantId: input.tenantId,
@@ -32,6 +34,7 @@ export async function getEventStats(
   projectId: string,
   days: number = 7
 ) {
+ return withTenant(tenantId, async (tx) => {
   const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
   const where = and(
     eq(analyticsEvents.tenantId, tenantId),
@@ -42,7 +45,7 @@ export async function getEventStats(
   // Totals and the per-type breakdown need different GROUP BY shapes, so
   // they're two queries rather than one jsonb_object_agg over a column that
   // doesn't exist without its own GROUP BY (that was the original bug here).
-  const [totals] = await db
+  const [totals] = await tx
     .select({
       totalEvents: sql<number>`COUNT(*)`,
       totalSessions: sql<number>`COUNT(DISTINCT ${analyticsEvents.sessionId})`,
@@ -50,7 +53,7 @@ export async function getEventStats(
     .from(analyticsEvents)
     .where(where)
 
-  const byType = await db
+  const byType = await tx
     .select({
       eventType: analyticsEvents.eventType,
       count: sql<number>`COUNT(*)`,
@@ -66,6 +69,7 @@ export async function getEventStats(
     totalSessions: Number(totals?.totalSessions ?? 0),
     eventTypes,
   }
+ })
 }
 
 export async function getUnitPopularity(
@@ -73,6 +77,7 @@ export async function getUnitPopularity(
   projectId: string,
   days: number = 7
 ) {
+ return withTenant(tenantId, async (tx) => {
   const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
   // payloadJson maps to the real column `payload_json`, not `payload` —
@@ -80,7 +85,7 @@ export async function getUnitPopularity(
   // doesn't exist and failed on every call.
   const unitIdExpr = sql<string>`${analyticsEvents.payloadJson}->>'unit_id'`
 
-  const result = await db
+  const result = await tx
     .select({
       unitId: unitIdExpr,
       views: sql<number>`COUNT(*)`,
@@ -98,6 +103,7 @@ export async function getUnitPopularity(
     .orderBy(sql`COUNT(*) DESC`)
 
   return result
+ })
 }
 
 export async function getHeatmapData(
@@ -105,9 +111,10 @@ export async function getHeatmapData(
   projectId: string,
   days: number = 7
 ) {
+ return withTenant(tenantId, async (tx) => {
   const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
-  const events = await db
+  const events = await tx
     .select()
     .from(analyticsEvents)
     .where(
@@ -139,4 +146,5 @@ export async function getHeatmapData(
   }
 
   return heatmapByUnit
+ })
 }

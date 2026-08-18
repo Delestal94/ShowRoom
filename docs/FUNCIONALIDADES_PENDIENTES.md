@@ -6,8 +6,12 @@ Estado real del producto al 2026-08-18 (commit `45f284c`), organizado por impact
 
 ## 🔴 Bloqueante — sin esto el producto no cumple su propósito
 
-### Gestión de unidades desde el panel
-**No existe ninguna pantalla para crear, editar o borrar unidades.** `unit-service.ts` tiene el CRUD completo (`createUnit`, `updateUnit`, `deleteUnit`, `listUnitsByProject`) pero no hay ni una página ni una API route que lo exponga en `/dashboard`. Hoy el flujo real es: creás un proyecto → no hay forma de cargarle unidades → el storefront público lo muestra sin inventario.
+### ~~Gestión de unidades desde el panel~~ — HECHO (2026-08-18)
+Implementado: alta individual, importación masiva pegando desde Excel/Sheets, tabla con edición inline y borrado. Ver `/dashboard/projects/[projectId]/units`.
+
+<details><summary>Diagnóstico original</summary>
+
+**No existía ninguna pantalla para crear, editar o borrar unidades.** `unit-service.ts` tiene el CRUD completo (`createUnit`, `updateUnit`, `deleteUnit`, `listUnitsByProject`) pero no hay ni una página ni una API route que lo exponga en `/dashboard`. Hoy el flujo real es: creás un proyecto → no hay forma de cargarle unidades → el storefront público lo muestra sin inventario.
 
 Esto es más urgente que cualquier otra cosa de esta lista: es el corazón del producto (mostrar unidades disponibles con precio/m²/orientación) y ahora mismo está totalmente ausente del admin.
 
@@ -16,8 +20,16 @@ Falta:
 - Página `dashboard/projects/[projectId]/units/new` y edición inline o `[unitId]/page.tsx`
 - Carga individual y, idealmente, importación masiva (CSV) — cargar unidad por unidad para un edificio de 80 departamentos no escala
 
-### Procesamiento de tours subidos
-Un tour subido queda con `status: 'processing'` para siempre — no hay ningún job que lo pase a `'ready'`. `Inngest`, la pieza que el plan original preveía para esto, nunca se instaló. Hoy `createTour()` debería directamente insertar con `status: 'ready'` (no hay transcodificación real pasando), o hay que definir qué procesamiento se espera y quién lo hace.
+</details>
+
+### ~~Procesamiento de tours subidos~~ — RESUELTO (2026-08-18)
+Se resolvió por la vía simple: como no hay ningún paso de transcodificación real, `createTour()` ahora inserta directamente con `status: 'ready'`. El archivo ya está subido y servible cuando se escribe la fila. Si más adelante se agrega procesamiento real (compresión Draco, generación de thumbnails), ahí sí hará falta Inngest.
+
+<details><summary>Diagnóstico original</summary>
+
+Un tour subido quedaba con `status: 'processing'` para siempre — no hay ningún job que lo pase a `'ready'`. `Inngest`, la pieza que el plan original preveía para esto, nunca se instaló. Hoy `createTour()` debería directamente insertar con `status: 'ready'`, o hay que definir qué procesamiento se espera y quién lo hace.
+
+</details>
 
 ---
 
@@ -29,14 +41,14 @@ Un tour subido queda con `status: 'processing'` para siempre — no hay ningún 
 - No hay enforcement de `unit_limit` por plan — un tenant en el plan gratuito podría cargar unidades ilimitadas.
 - `.env.local` tiene claves de Stripe de placeholder (`sk_test_1234567890`), así que ni siquiera está configurado para probar en modo test.
 
-### Aislamiento multi-tenant (RLS)
-Documentado en detalle en `CODIGO_MUERTO.md` sección 6. Resumen: las políticas RLS están escritas pero deshabilitadas en la base real, y la app depende 100% de que cada query tenga `tenantId` en el `where`. Sin esto, un bug de un desarrollador (olvidar un filtro) expone datos de otro tenant sin ninguna red de contención. Es el ítem de seguridad más importante del roadmap.
+### ~~Aislamiento multi-tenant (RLS)~~ — HECHO (2026-08-18)
+Implementado con un rol de DB dedicado sin `BYPASSRLS`, políticas reescritas para no romper el storefront público, y helpers `withTenant()`/`withUser()`. Verificado con `scripts/test-tenant-isolation.mjs` (15/15): el rol de la app no puede leer ni escribir datos de otro tenant ni nombrando el id directamente. Detalle completo en `CODIGO_MUERTO.md` sección 6.
 
-### Publicar / despublicar proyecto
-`projects.status` soporta `'draft' | 'published'`, y el storefront público sólo muestra proyectos publicados — pero no hay ningún botón en el admin para cambiar ese estado. Todo proyecto creado queda en `draft` para siempre a menos que se edite directo en la base.
+### ~~Publicar / despublicar proyecto~~ — HECHO (2026-08-18)
+Botón en la página del proyecto. Publicar con 0 unidades y 0 tours se bloquea con explicación, para no dejar una página vacía detrás de un link que el usuario está por compartir.
 
-### Editar proyecto ya creado
-Hay creación (`/dashboard/projects/new`) pero no edición. Si te equivocaste en el nombre, la dirección o querés cambiar el slug, no hay dónde hacerlo.
+### ~~Editar proyecto ya creado~~ — HECHO (2026-08-18)
+`/dashboard/projects/[projectId]/edit` — nombre, slug y dirección. También se agregó borrado con confirmación.
 
 ---
 
@@ -68,7 +80,9 @@ Para que quede claro qué **no** hay que tocar:
 
 - Auth completa con Supabase (sign-up, sign-in, confirmación por mail, sign-out, protección de rutas)
 - Auto-provisioning de tenant en el primer login
-- CRUD de proyectos (crear, listar, ver detalle) — **falta editar**
+- Gestión de unidades: alta individual, importación masiva desde planilla, edición inline, borrado
+- Aislamiento multi-tenant real con RLS a nivel de Postgres
+- CRUD de proyectos completo: crear, listar, ver, editar, publicar/despublicar, borrar
 - Subida de tours (GLB, 360°, foto, video) vía URL firmada directa a Supabase Storage
 - Visor 3D (GLB) con toggle día/atardecer/noche
 - Visor 360° (Pannellum)
@@ -83,8 +97,10 @@ Para que quede claro qué **no** hay que tocar:
 
 ## Orden sugerido si hay que priorizar
 
-1. **Gestión de unidades** — sin esto no hay producto que mostrar.
-2. **Publicar/despublicar + editar proyecto** — completa el loop básico de "cargar → publicar → compartir".
-3. **RLS real** — antes de tener un segundo tenant pagando, no después.
-4. **Billing** — checkout + enforcement de límites, recién ahí tiene sentido cobrar.
-5. Todo lo demás (brokers, PDF, edificios, super-admin) es valor agregado sobre una base que ya vende.
+Los tres primeros ítems de la lista original ya están hechos (unidades, publicar/editar, RLS). Lo que sigue:
+
+1. **Billing** — checkout de Stripe + seed de `plans` + enforcement de `unit_limit`. Es lo único que separa al producto de poder cobrar.
+2. **WhatsApp real y timeline del lead** — barato de hacer y mejora directamente la herramienta de venta que ya se usa.
+3. **Links de broker con tracking** — desbloquea los reportes segregados, que es diferencial frente a mandar PDFs.
+4. **Invitar usuarios al tenant** — hoy es un solo usuario por inmobiliaria; limita a equipos.
+5. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom) es valor agregado sobre una base que ya vende.

@@ -1,4 +1,4 @@
-import { db } from '@/server/db/client'
+import { publicDb as db } from '@/server/db/tenant-db'
 import { projects, leads } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 

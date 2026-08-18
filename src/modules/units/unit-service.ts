@@ -1,6 +1,6 @@
-import { db } from '@/server/db/client'
 import { units } from '@/server/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { withTenant } from '@/server/db/tenant-db'
 
 export async function createUnit(
   tenantId: string,
@@ -16,40 +16,55 @@ export async function createUnit(
     status?: string
   }
 ) {
-  const [unit] = await db
-    .insert(units)
-    .values({
-      tenantId,
-      projectId,
-      ...data,
-    })
-    .returning()
+  return withTenant(tenantId, async (tx) => {
+    const [unit] = await tx
+      .insert(units)
+      .values({ tenantId, projectId, ...data })
+      .returning()
+    return unit
+  })
+}
 
-  return unit
+/** Inserts many units in a single transaction — used by the CSV import. */
+export async function createUnitsBulk(
+  tenantId: string,
+  projectId: string,
+  rows: Array<{
+    code: string
+    floor?: number
+    m2?: string
+    price?: string
+    currency?: string
+    orientation?: string
+    bedrooms?: number
+    status?: string
+  }>
+) {
+  if (rows.length === 0) return []
+
+  return withTenant(tenantId, (tx) =>
+    tx
+      .insert(units)
+      .values(rows.map((r) => ({ tenantId, projectId, ...r })))
+      .returning()
+  )
 }
 
 export async function getUnit(tenantId: string, unitId: string) {
-  const unit = await db.query.units.findFirst({
-    where: and(
-      eq(units.id, unitId),
-      eq(units.tenantId, tenantId)
-    ),
-  })
-
-  return unit
+  return withTenant(tenantId, (tx) =>
+    tx.query.units.findFirst({
+      where: and(eq(units.id, unitId), eq(units.tenantId, tenantId)),
+    })
+  )
 }
 
-export async function listUnitsByProject(
-  tenantId: string,
-  projectId: string
-) {
-  return db.query.units.findMany({
-    where: and(
-      eq(units.tenantId, tenantId),
-      eq(units.projectId, projectId)
-    ),
-    orderBy: (u) => [u.code],
-  })
+export async function listUnitsByProject(tenantId: string, projectId: string) {
+  return withTenant(tenantId, (tx) =>
+    tx.query.units.findMany({
+      where: and(eq(units.tenantId, tenantId), eq(units.projectId, projectId)),
+      orderBy: (u) => [u.code],
+    })
+  )
 }
 
 export async function updateUnit(
@@ -60,35 +75,26 @@ export async function updateUnit(
     floor: number
     m2: string
     price: string
+    currency: string
     status: string
     bedrooms: number
     orientation: string
   }>
 ) {
-  const [updated] = await db
-    .update(units)
-    .set({ ...data, updatedAt: new Date() })
-    .where(
-      and(
-        eq(units.id, unitId),
-        eq(units.tenantId, tenantId)
-      )
-    )
-    .returning()
-
-  return updated
+  return withTenant(tenantId, async (tx) => {
+    const [updated] = await tx
+      .update(units)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(units.id, unitId), eq(units.tenantId, tenantId)))
+      .returning()
+    return updated
+  })
 }
 
-export async function deleteUnit(
-  tenantId: string,
-  unitId: string
-) {
-  await db
-    .delete(units)
-    .where(
-      and(
-        eq(units.id, unitId),
-        eq(units.tenantId, tenantId)
-      )
-    )
+export async function deleteUnit(tenantId: string, unitId: string) {
+  return withTenant(tenantId, async (tx) => {
+    await tx
+      .delete(units)
+      .where(and(eq(units.id, unitId), eq(units.tenantId, tenantId)))
+  })
 }
