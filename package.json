@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed:plans": "node scripts/seed-plans.mjs",
-    "test:isolation": "node scripts/test-tenant-isolation.mjs"
+    "test:isolation": "node scripts/test-tenant-isolation.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",
