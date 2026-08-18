@@ -2,22 +2,6 @@
 
 import { useState, useEffect } from 'react'
 
-function formatPrice(value?: string | number): string {
-  if (!value) return '$0'
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-  }).format(num)
-}
-
-function formatM2(value?: string | number): string {
-  if (!value) return '0 m²'
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  return `${Math.round(num)} m²`
-}
-
 interface FilterOptions {
   priceRange: { min: number; max: number }
   m2Range: { min: number; max: number }
@@ -31,10 +15,16 @@ interface UnitFiltersProps {
   filterOptions?: FilterOptions
 }
 
-export function UnitFilters({
-  onFiltersChange,
-  filterOptions,
-}: UnitFiltersProps) {
+const inputCls =
+  'h-10 w-full rounded-md border border-border bg-surface-2/60 px-3 text-sm text-fg placeholder:text-fg-subtle transition-colors hover:border-border-strong focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25'
+
+const labelCls = 'mb-1.5 block text-xs font-medium uppercase tracking-wider text-fg-subtle'
+
+function money(n: number) {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
+}
+
+export function UnitFilters({ onFiltersChange, filterOptions }: UnitFiltersProps) {
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [minM2, setMinM2] = useState('')
@@ -44,194 +34,175 @@ export function UnitFilters({
   const [floor, setFloor] = useState('')
   const [search, setSearch] = useState('')
 
-  // Trigger filter update when any filter changes
+  // Debounced so typing in the text inputs doesn't fire a request per keystroke.
   useEffect(() => {
-    const filters: Record<string, any> = {}
+    const timer = setTimeout(() => {
+      const filters: Record<string, any> = {}
+      if (minPrice) filters.minPrice = parseFloat(minPrice)
+      if (maxPrice) filters.maxPrice = parseFloat(maxPrice)
+      if (minM2) filters.minM2 = parseFloat(minM2)
+      if (maxM2) filters.maxM2 = parseFloat(maxM2)
+      if (orientation) filters.orientation = orientation
+      if (bedrooms) filters.bedrooms = parseInt(bedrooms)
+      if (floor) filters.floor = parseInt(floor)
+      if (search) filters.search = search
+      onFiltersChange(filters)
+    }, 300)
 
-    if (minPrice) filters.minPrice = parseFloat(minPrice)
-    if (maxPrice) filters.maxPrice = parseFloat(maxPrice)
-    if (minM2) filters.minM2 = parseFloat(minM2)
-    if (maxM2) filters.maxM2 = parseFloat(maxM2)
-    if (orientation) filters.orientation = orientation
-    if (bedrooms) filters.bedrooms = parseInt(bedrooms)
-    if (floor) filters.floor = parseInt(floor)
-    if (search) filters.search = search
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search])
 
-    onFiltersChange(filters)
-  }, [minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search, onFiltersChange])
+  const activeCount = [
+    minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search,
+  ].filter(Boolean).length
 
-  const handleReset = () => {
-    setMinPrice('')
-    setMaxPrice('')
-    setMinM2('')
-    setMaxM2('')
-    setOrientation('')
-    setBedrooms('')
-    setFloor('')
-    setSearch('')
+  const clearAll = () => {
+    setMinPrice(''); setMaxPrice(''); setMinM2(''); setMaxM2('')
+    setOrientation(''); setBedrooms(''); setFloor(''); setSearch('')
   }
 
-  const hasActiveFilters =
-    minPrice || maxPrice || minM2 || maxM2 || orientation || bedrooms || floor || search
-
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-        {hasActiveFilters && (
+    <div className="rounded-2xl border border-border bg-surface/50 p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-fg">Filtros</h3>
+        {activeCount > 0 && (
           <button
-            onClick={handleReset}
-            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            type="button"
+            onClick={clearAll}
+            className="text-xs font-medium text-primary transition-colors hover:underline"
           >
-            Clear all
+            Limpiar ({activeCount})
           </button>
         )}
       </div>
 
-      <div className="space-y-6">
-        {/* Search */}
+      <div className="mt-5 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Unit Code
+          <label htmlFor="f-search" className={labelCls}>
+            Código de unidad
           </label>
           <input
-            type="text"
+            id="f-search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="e.g., 101, A-202"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            placeholder="8B, A-202…"
+            className={inputCls}
           />
         </div>
 
-        {/* Price Range */}
-        {filterOptions && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Price Range
-              </label>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                    placeholder={`Min (${formatPrice(filterOptions.priceRange.min)})`}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                  <input
-                    type="number"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                    placeholder={`Max (${formatPrice(filterOptions.priceRange.max)})`}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Size Range */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Size
-              </label>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={minM2}
-                    onChange={(e) => setMinM2(e.target.value)}
-                    placeholder={`Min (${formatM2(filterOptions.m2Range.min)})`}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                  <input
-                    type="number"
-                    value={maxM2}
-                    onChange={(e) => setMaxM2(e.target.value)}
-                    placeholder={`Max (${formatM2(filterOptions.m2Range.max)})`}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bedrooms */}
-            {filterOptions.bedrooms.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Bedrooms
-                </label>
-                <div className="space-y-2">
-                  {filterOptions.bedrooms.map((br) => (
-                    <label key={br} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="bedrooms"
-                        value={br}
-                        checked={bedrooms === br.toString()}
-                        onChange={(e) => setBedrooms(e.target.value)}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-700">{br} bed{br !== 1 ? 's' : ''}</span>
-                    </label>
-                  ))}
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="bedrooms"
-                      value=""
-                      checked={bedrooms === ''}
-                      onChange={() => setBedrooms('')}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700">All</span>
-                  </label>
-                </div>
-              </div>
+        <div>
+          <span className={labelCls}>
+            Precio
+            {filterOptions && (
+              <span className="ml-1 font-normal normal-case tracking-normal text-fg-subtle">
+                ({money(filterOptions.priceRange.min)} – {money(filterOptions.priceRange.max)})
+              </span>
             )}
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
+              inputMode="numeric"
+              placeholder="Mínimo"
+              aria-label="Precio mínimo"
+              className={inputCls}
+            />
+            <input
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              inputMode="numeric"
+              placeholder="Máximo"
+              aria-label="Precio máximo"
+              className={inputCls}
+            />
+          </div>
+        </div>
 
-            {/* Orientation */}
-            {filterOptions.orientations.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Orientation
-                </label>
-                <select
-                  value={orientation}
-                  onChange={(e) => setOrientation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="">All orientations</option>
-                  {filterOptions.orientations.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+        <div>
+          <span className={labelCls}>Superficie (m²)</span>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              value={minM2}
+              onChange={(e) => setMinM2(e.target.value)}
+              inputMode="numeric"
+              placeholder="Mínimo"
+              aria-label="Superficie mínima"
+              className={inputCls}
+            />
+            <input
+              value={maxM2}
+              onChange={(e) => setMaxM2(e.target.value)}
+              inputMode="numeric"
+              placeholder="Máximo"
+              aria-label="Superficie máxima"
+              className={inputCls}
+            />
+          </div>
+        </div>
 
-            {/* Floor */}
-            {filterOptions.floors.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Floor
-                </label>
-                <select
-                  value={floor}
-                  onChange={(e) => setFloor(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="">All floors</option>
-                  {filterOptions.floors.map((f) => (
-                    <option key={f} value={f}>
-                      Floor {f}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </>
+        {filterOptions && filterOptions.bedrooms.length > 0 && (
+          <div>
+            <label htmlFor="f-bed" className={labelCls}>
+              Dormitorios
+            </label>
+            <select
+              id="f-bed"
+              value={bedrooms}
+              onChange={(e) => setBedrooms(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Cualquiera</option>
+              {filterOptions.bedrooms.map((b) => (
+                <option key={b} value={b}>
+                  {b} {b === 1 ? 'dormitorio' : 'dormitorios'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {filterOptions && filterOptions.orientations.length > 0 && (
+          <div>
+            <label htmlFor="f-or" className={labelCls}>
+              Orientación
+            </label>
+            <select
+              id="f-or"
+              value={orientation}
+              onChange={(e) => setOrientation(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Cualquiera</option>
+              {filterOptions.orientations.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {filterOptions && filterOptions.floors.length > 0 && (
+          <div>
+            <label htmlFor="f-floor" className={labelCls}>
+              Piso
+            </label>
+            <select
+              id="f-floor"
+              value={floor}
+              onChange={(e) => setFloor(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Cualquiera</option>
+              {filterOptions.floors.map((f) => (
+                <option key={f} value={f}>
+                  Piso {f}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
     </div>

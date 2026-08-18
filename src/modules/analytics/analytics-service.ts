@@ -140,7 +140,7 @@ export async function getHeatmapData(
       heatmapByUnit[unitId].views++
     } else if (event.eventType === 'dwell_time') {
       heatmapByUnit[unitId].dwell_time_ms += payload?.dwell_time_ms || 0
-    } else if (['contact_form_submit', 'unit_compare', 'tour_view'].includes(event.eventType)) {
+    } else if (['contact_form_submit', 'whatsapp_click', 'unit_compare', 'tour_view'].includes(event.eventType)) {
       heatmapByUnit[unitId].engagements++
     }
   }

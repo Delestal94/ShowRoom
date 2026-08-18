@@ -64,7 +64,7 @@ export function PanoramaViewer({ imageUrl, title }: PanoramaViewerProps) {
   }, [imageUrl])
 
   return (
-    <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden bg-black">
       <div
         ref={containerRef}
         id={viewerId.current}
@@ -73,14 +73,14 @@ export function PanoramaViewer({ imageUrl, title }: PanoramaViewerProps) {
       />
 
       {title && (
-        <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white text-sm px-3 py-2 rounded z-10">
+        <p className="pointer-events-none absolute left-4 top-4 rounded-full border border-border bg-bg/70 px-3 py-1.5 text-xs text-fg backdrop-blur">
           {title}
-        </div>
+        </p>
       )}
 
-      <div className="absolute bottom-4 right-4 bg-black bg-opacity-50 text-white text-xs px-3 py-2 rounded z-10">
-        <p>🖱️ Drag to look around • Scroll to zoom</p>
-      </div>
+      <p className="pointer-events-none absolute bottom-4 right-4 rounded-full border border-border bg-bg/70 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur">
+        Arrastrá para mirar alrededor · Scroll para acercar
+      </p>
     </div>
   )
 }

@@ -23,14 +23,20 @@ function GLBModel({ url, lighting }: { url: string; lighting: string }) {
 
 function LoadingFallback() {
   return (
-    <div className="flex items-center justify-center w-full h-full bg-gray-900">
+    <div className="flex h-full w-full items-center justify-center bg-surface">
       <div className="text-center">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-        <p className="text-white mt-4">Loading 3D model...</p>
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-border border-t-primary" />
+        <p className="mt-4 text-sm text-fg-muted">Cargando el modelo 3D…</p>
       </div>
     </div>
   )
 }
+
+const LIGHTING_MODES = [
+  { id: 'day', label: 'Día', icon: '☀️' },
+  { id: 'sunset', label: 'Atardecer', icon: '🌅' },
+  { id: 'night', label: 'Noche', icon: '🌙' },
+] as const
 
 export function GLBViewer({
   url,
@@ -40,7 +46,7 @@ export function GLBViewer({
   const [lighting, setLighting] = useState<'day' | 'sunset' | 'night'>(initialLighting)
 
   return (
-    <div className="relative w-full h-full bg-gray-900 rounded-lg overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden bg-surface">
       <Suspense fallback={<LoadingFallback />}>
         <Canvas
           camera={{ position: [0, 2, 5], fov: 50 }}
@@ -63,46 +69,29 @@ export function GLBViewer({
       </Suspense>
 
       {enableDayNight && (
-        <div className="absolute bottom-4 left-4 flex gap-2 bg-black bg-opacity-50 rounded-lg p-3 z-10">
-          <button
-            onClick={() => setLighting('day')}
-            className={`px-3 py-1 rounded text-sm font-medium transition ${
-              lighting === 'day'
-                ? 'bg-yellow-500 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-            title="Day mode"
-          >
-            ☀️ Day
-          </button>
-          <button
-            onClick={() => setLighting('sunset')}
-            className={`px-3 py-1 rounded text-sm font-medium transition ${
-              lighting === 'sunset'
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-            title="Sunset mode"
-          >
-            🌅 Sunset
-          </button>
-          <button
-            onClick={() => setLighting('night')}
-            className={`px-3 py-1 rounded text-sm font-medium transition ${
-              lighting === 'night'
-                ? 'bg-blue-900 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-            title="Night mode"
-          >
-            🌙 Night
-          </button>
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-bg/80 p-1 backdrop-blur">
+          {LIGHTING_MODES.map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => setLighting(mode.id)}
+              aria-pressed={lighting === mode.id}
+              className={
+                lighting === mode.id
+                  ? 'rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-fg'
+                  : 'rounded-full px-3.5 py-1.5 text-xs text-fg-muted transition-colors hover:text-fg'
+              }
+            >
+              <span className="mr-1" aria-hidden>{mode.icon}</span>
+              {mode.label}
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="absolute top-4 right-4 bg-black bg-opacity-50 text-white text-xs px-3 py-2 rounded z-10">
-        <p>🖱️ Drag to rotate • Scroll to zoom</p>
-      </div>
+      <p className="pointer-events-none absolute right-4 top-4 rounded-full border border-border bg-bg/70 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur">
+        Arrastrá para girar · Scroll para acercar
+      </p>
     </div>
   )
 }

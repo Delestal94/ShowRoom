@@ -21,6 +21,8 @@ export const tenants = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull().unique(),
     customDomain: text('custom_domain'),
+    /** E.164 digits only (e.g. 5491122334455) for the storefront's wa.me link. */
+    contactWhatsapp: text('contact_whatsapp'),
     status: varchar('status', { length: 50 }).notNull().default('active'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

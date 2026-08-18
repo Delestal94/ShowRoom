@@ -1,22 +1,24 @@
 'use client'
 
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { trackEvent } from '@/lib/analytics'
 
 interface ContactFormProps {
   projectSlug: string
-  projectId: string
+  projectName: string
+  /** E.164 without symbols, e.g. 5491122334455. Hides the button when absent. */
+  whatsappNumber?: string | null
 }
 
-export function ContactForm({ projectSlug, projectId }: ContactFormProps) {
+const inputCls =
+  'h-11 w-full rounded-md border border-border bg-surface-2/60 px-3.5 text-sm text-fg placeholder:text-fg-subtle transition-colors hover:border-border-strong focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25'
+
+export function ContactForm({ projectSlug, projectName, whatsappNumber }: ContactFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    message: '',
-  })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,147 +26,151 @@ export function ContactForm({ projectSlug, projectId }: ContactFormProps) {
     setError('')
 
     try {
-      const response = await fetch(
-        `/api/projects/${projectSlug}/leads`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectId,
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            message: formData.message,
-          }),
-        }
-      )
+      const res = await fetch(`/api/projects/${projectSlug}/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
 
-      if (!response.ok) {
-        throw new Error('Failed to submit form')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error ?? 'No pudimos enviar tu consulta. Probá de nuevo.')
+        return
       }
 
       setSuccess(true)
-      setFormData({ name: '', email: '', phone: '', message: '' })
-
-      // Reset success message after 5 seconds
-      setTimeout(() => setSuccess(false), 5000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      trackEvent({
+        type: 'contact_form_submit',
+        projectSlug,
+        metadata: { source: 'storefront' },
+      })
+    } catch {
+      setError('No pudimos enviar tu consulta. Probá de nuevo.')
     } finally {
       setLoading(false)
     }
   }
 
+  if (success) {
+    return (
+      <div className="rounded-2xl border border-success/40 bg-success/5 p-6 text-center">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-success/40 bg-success/10">
+          <svg viewBox="0 0 24 24" className="h-5 w-5 text-success" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <h3 className="mt-4 font-semibold text-fg">Consulta enviada</h3>
+        <p className="mt-1.5 text-sm text-fg-muted">
+          Te vamos a contactar a la brevedad.
+        </p>
+      </div>
+    )
+  }
+
+  const waHref = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+        `Hola, me interesa el proyecto ${projectName}.`
+      )}`
+    : null
+
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-2">Interested?</h3>
-      <p className="text-sm text-gray-600 mb-6">
-        Get more information about this project. Our team will contact you soon.
+    <div className="rounded-2xl border border-border bg-surface/60 p-6 backdrop-blur">
+      <h3 className="font-semibold text-fg">¿Te interesa?</h3>
+      <p className="mt-1 text-sm text-fg-muted">
+        Dejanos tus datos y te contactamos con toda la información.
       </p>
 
-      {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm text-green-800">
-            ✓ Thank you! We&apos;ll contact you soon.
+      <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
+        {error && (
+          <p className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
+            {error}
           </p>
-        </div>
-      )}
+        )}
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Name
+          <label htmlFor="cf-name" className="mb-1.5 block text-sm font-medium text-fg">
+            Nombre
           </label>
           <input
-            type="text"
-            value={formData.name}
-            onChange={(e) =>
-              setFormData({ ...formData, name: e.target.value })
-            }
+            id="cf-name"
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Your name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Tu nombre"
+            className={inputCls}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="cf-email" className="mb-1.5 block text-sm font-medium text-fg">
             Email
           </label>
           <input
+            id="cf-email"
             type="email"
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="your@email.com"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="vos@email.com"
+            className={inputCls}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Phone
+          <label htmlFor="cf-phone" className="mb-1.5 block text-sm font-medium text-fg">
+            Teléfono
           </label>
           <input
+            id="cf-phone"
             type="tel"
-            value={formData.phone}
-            onChange={(e) =>
-              setFormData({ ...formData, phone: e.target.value })
-            }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="+1 (555) 000-0000"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="11 2233-4455"
+            className={inputCls}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Message (Optional)
+          <label htmlFor="cf-msg" className="mb-1.5 block text-sm font-medium text-fg">
+            Mensaje <span className="font-normal text-fg-subtle">(opcional)</span>
           </label>
           <textarea
-            value={formData.message}
-            onChange={(e) =>
-              setFormData({ ...formData, message: e.target.value })
-            }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            placeholder="Tell us about your interest..."
-            rows={4}
+            id="cf-msg"
+            rows={3}
+            value={form.message}
+            onChange={(e) => setForm({ ...form, message: e.target.value })}
+            placeholder="Contanos qué estás buscando…"
+            className="w-full rounded-md border border-border bg-surface-2/60 p-3.5 text-sm text-fg placeholder:text-fg-subtle transition-colors hover:border-border-strong focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-semibold transition"
-        >
-          {loading ? 'Sending...' : 'Contact Agent'}
-        </button>
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? 'Enviando…' : 'Enviar consulta'}
+        </Button>
 
-        <p className="text-xs text-gray-500 text-center">
-          We respect your privacy. No spam, ever.
+        <p className="text-center text-xs text-fg-subtle">
+          No compartimos tus datos con nadie.
         </p>
       </form>
 
-      {/* WhatsApp Quick Link */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <p className="text-sm text-gray-600 mb-3">Prefer WhatsApp?</p>
-        <a
-          href="https://wa.me/1234567890?text=Hi%20I'm%20interested%20in%20learning%20more%20about%20this%20project"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-50 border border-green-200 text-green-700 rounded-lg hover:bg-green-100 transition text-sm font-medium"
-        >
-          <span>💬</span>
-          <span>Chat on WhatsApp</span>
-        </a>
-      </div>
+      {waHref && (
+        <div className="mt-5 border-t border-border pt-5">
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() =>
+              trackEvent({ type: 'whatsapp_click', projectSlug, metadata: {} })
+            }
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-success/40 bg-success/10 text-sm font-medium text-success transition-colors hover:bg-success/20"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.4 1.3-2 1.3-.5 0-1.1.2-3.7-.8-3.1-1.3-5.1-4.5-5.2-4.7-.2-.2-1.3-1.7-1.3-3.2s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .5 0 .7.5l1 2.4c.1.2.1.4 0 .6l-.4.6-.3.3c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.2.5.1.6 0l.9-1c.2-.3.4-.2.6-.1l2.2 1c.3.2.5.3.5.4.1.2.1.7-.1 1.4Z" />
+            </svg>
+            Consultar por WhatsApp
+          </a>
+        </div>
+      )}
     </div>
   )
 }

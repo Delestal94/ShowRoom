@@ -5,6 +5,7 @@ import { TourViewer } from './tour-viewer'
 import { UnitFilters } from './unit-filters'
 import { UnitGrid } from './unit-grid'
 import { ContactForm } from './contact-form'
+import { LogoMark } from './ui/logo'
 import { trackEvent } from '@/lib/analytics'
 
 interface Tour {
@@ -22,6 +23,7 @@ interface Unit {
   floor?: number
   m2?: string
   price?: string
+  currency?: string
   status: string
   orientation?: string
   bedrooms?: number
@@ -41,6 +43,7 @@ interface StorefrontClientProps {
   projectAddress: string
   initialUnits: Unit[]
   tours: Tour[]
+  whatsappNumber?: string | null
 }
 
 export function StorefrontClient({
@@ -49,130 +52,143 @@ export function StorefrontClient({
   projectAddress,
   initialUnits,
   tours,
+  whatsappNumber,
 }: StorefrontClientProps) {
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState<Record<string, any>>({})
 
-  // Load filter options on mount and track page view
   useEffect(() => {
-    const loadFilterOptions = async () => {
-      try {
-        const searchParams = new URLSearchParams()
-        const res = await fetch(
-          `/api/projects/${projectSlug}/units/search?${searchParams}`
-        )
-        const data = await res.json()
-        setFilterOptions(data.filterOptions)
-      } catch (error) {
-        console.error('Failed to load filter options:', error)
-      }
-    }
+    fetch(`/api/projects/${projectSlug}/units/search`)
+      .then((r) => r.json())
+      .then((d) => setFilterOptions(d.filterOptions))
+      .catch((e) => console.error('No se pudieron cargar los filtros:', e))
 
-    loadFilterOptions()
-
-    // Track page view
     trackEvent({
       type: 'page_view',
       projectSlug,
-      metadata: {
-        page: 'storefront',
-      },
+      metadata: { page: 'storefront' },
     })
   }, [projectSlug])
 
-  // Fetch units when filters change
   useEffect(() => {
+    const controller = new AbortController()
+
     const fetchUnits = async () => {
       setLoading(true)
       try {
-        const searchParams = new URLSearchParams()
-
-        // Add active filters to query
-        if (filters.minPrice) searchParams.append('minPrice', filters.minPrice)
-        if (filters.maxPrice) searchParams.append('maxPrice', filters.maxPrice)
-        if (filters.minM2) searchParams.append('minM2', filters.minM2)
-        if (filters.maxM2) searchParams.append('maxM2', filters.maxM2)
-        if (filters.orientation) searchParams.append('orientation', filters.orientation)
-        if (filters.bedrooms) searchParams.append('bedrooms', filters.bedrooms)
-        if (filters.floor) searchParams.append('floor', filters.floor)
-        if (filters.search) searchParams.append('search', filters.search)
+        const params = new URLSearchParams()
+        for (const [key, value] of Object.entries(filters)) {
+          if (value !== '' && value != null) params.append(key, String(value))
+        }
 
         const res = await fetch(
-          `/api/projects/${projectSlug}/units/search?${searchParams}`
+          `/api/projects/${projectSlug}/units/search?${params}`,
+          { signal: controller.signal }
         )
         const data = await res.json()
-        setUnits(data.units)
+        setUnits(data.units ?? [])
       } catch (error) {
-        console.error('Failed to fetch units:', error)
+        // Aborted requests are expected when filters change quickly.
+        if ((error as Error).name !== 'AbortError') {
+          console.error('No se pudieron cargar las unidades:', error)
+        }
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
 
     fetchUnits()
+    return () => controller.abort()
   }, [filters, projectSlug])
 
   const readyTours = tours.filter((t) => t.status === 'ready')
+  const available = units.filter((u) => u.status === 'available').length
 
   return (
-    <div>
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">{projectName}</h1>
-          <p className="text-gray-600 mt-2">{projectAddress}</p>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur-xl">
+        <div className="container-page flex h-16 items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold tracking-tight text-fg">
+              {projectName}
+            </h1>
+            {projectAddress && (
+              <p className="truncate text-xs text-fg-muted">{projectAddress}</p>
+            )}
+          </div>
+          <a
+            href="#unidades"
+            className="hidden shrink-0 rounded-full border border-border px-4 py-2 text-sm text-fg-muted transition-colors hover:border-border-strong hover:text-fg sm:inline-flex"
+          >
+            Ver unidades
+          </a>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: 3D Viewer */}
-          <div className="lg:col-span-2">
+      <main className="container-page py-8 sm:py-12">
+        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+          <div className="aspect-[16/10] lg:aspect-auto lg:min-h-[30rem]">
             {readyTours.length > 0 ? (
-              <div style={{ aspectRatio: '16/9' }}>
-                <TourViewer tours={readyTours as any} projectSlug={projectSlug} />
-              </div>
+              <TourViewer tours={readyTours as any} projectSlug={projectSlug} />
             ) : (
-              <div className="flex items-center justify-center w-full bg-gray-100 rounded-lg border-2 border-gray-200"
-                style={{ aspectRatio: '16/9' }}>
-                <div className="text-center">
-                  <p className="text-gray-600 font-medium">No tours available yet</p>
+              <div className="flex h-full w-full items-center justify-center rounded-2xl border border-dashed border-border bg-surface/30">
+                <div className="px-6 text-center">
+                  <LogoMark className="mx-auto h-10 w-10 opacity-40" />
+                  <p className="mt-4 font-medium text-fg">
+                    Todavía no hay un recorrido cargado
+                  </p>
+                  <p className="mt-1 text-sm text-fg-muted">
+                    Mientras tanto, podés ver las unidades disponibles más abajo.
+                  </p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Right: Contact Form & Filters */}
-          <aside>
-            <div className="sticky top-24 space-y-6">
-              <ContactForm projectSlug={projectSlug} projectId={projectSlug} />
-
-              {filterOptions && (
-                <UnitFilters
-                  onFiltersChange={setFilters}
-                  filterOptions={filterOptions}
-                />
-              )}
-            </div>
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <ContactForm
+              projectSlug={projectSlug}
+              projectName={projectName}
+              whatsappNumber={whatsappNumber}
+            />
           </aside>
         </div>
 
-        {/* Units Grid */}
-        <div className="mt-12">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Available Units
-            </h2>
-            <p className="text-gray-600">
-              {units.length} unit{units.length !== 1 ? 's' : ''} matching your criteria
+        <section id="unidades" className="mt-16 scroll-mt-20">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-title font-semibold text-fg">Unidades</h2>
+            <p className="text-sm text-fg-muted">
+              {loading
+                ? 'Buscando…'
+                : `${units.length} ${units.length === 1 ? 'resultado' : 'resultados'}` +
+                  (available !== units.length ? ` · ${available} disponibles` : '')}
             </p>
           </div>
 
-          <UnitGrid units={units} loading={loading} projectSlug={projectSlug} />
-        </div>
+          <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_1fr]">
+            <div className="lg:sticky lg:top-24 lg:self-start">
+              <UnitFilters onFiltersChange={setFilters} filterOptions={filterOptions ?? undefined} />
+            </div>
+
+            <UnitGrid units={units} loading={loading} projectSlug={projectSlug} />
+          </div>
+        </section>
       </main>
+
+      <footer className="mt-16 border-t border-border">
+        <div className="container-page flex flex-col items-center justify-between gap-3 py-8 sm:flex-row">
+          <p className="text-sm text-fg-subtle">{projectName}</p>
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-fg-subtle transition-colors hover:text-fg"
+          >
+            <LogoMark className="h-4 w-4" />
+            Hecho con ShowRoom
+          </a>
+        </div>
+      </footer>
     </div>
   )
 }

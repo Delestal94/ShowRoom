@@ -6,6 +6,7 @@ export type AnalyticsEventType =
   | 'unit_compare'
   | 'contact_form_open'
   | 'contact_form_submit'
+  | 'whatsapp_click'
   | 'dwell_time'
 
 export interface AnalyticsEvent {
