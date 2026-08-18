@@ -92,6 +92,9 @@ Para que quede claro qué **no** hay que tocar:
 - Auto-provisioning de tenant en el primer login
 - Gestión de unidades: alta individual, importación masiva desde planilla, edición inline, borrado
 - Ficha pública por unidad con contenido propio y URL compartible
+- Mapa de ubicación con puntos de interés (Leaflet + tiles sin API key)
+- Timeline del lead, con los cambios de estado registrados automáticamente
+- QR descargable, modo embebido para iframe/pantalla táctil, y headers que impiden embeber el panel
 - Aislamiento multi-tenant real con RLS a nivel de Postgres
 - Planes y suscripciones con Mercado Pago, con límites aplicados de verdad
 - CRUD de proyectos completo: crear, listar, ver, editar, publicar/despublicar, borrar
@@ -125,10 +128,10 @@ Más baratos y con impacto visible:
 
 Los tres primeros ítems de la lista original ya están hechos (unidades, publicar/editar, RLS), más billing. Lo que sigue:
 
-1. **Mapa de ubicación** — `projects.geo` ya existe sin usar. De lo más barato con más impacto en la página pública.
-2. **Avances de obra + aviso a inversores** — lo que hace que el comprador vuelva durante los años de obra. Requiere tabla nueva y un proveedor de mail.
-3. **Timeline del lead** — el servicio ya existe (`addLeadActivity`, `getLeadActivities`), falta la UI. Barato.
-4. **Embed (iframe) + QR + modo kiosco** — Urbania lo destaca como forma de distribución; poco esfuerzo.
-5. **Links de broker con tracking** — desbloquea los reportes segregados.
-6. **Navegación piso por piso** en el visor 3D.
-7. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom, invitaciones, más filtros vía `attrs_json`) es valor agregado sobre una base que ya vende.
+Hechos el 2026-08-18: ~~mapa de ubicación~~, ~~timeline del lead~~, ~~embed + QR + modo kiosco~~.
+
+1. **Avances de obra + aviso a inversores** — lo que hace que el comprador vuelva durante los años de obra. Requiere tabla nueva y un proveedor de mail (Resend o similar).
+2. **Links de broker con tracking** — desbloquea los reportes segregados.
+3. **Navegación piso por piso** en el visor 3D. Depende de cómo esté estructurado el modelo GLB: sin nodos por piso en el archivo, no hay nada que seleccionar.
+4. **Invitar usuarios al tenant** — hoy es un solo usuario por inmobiliaria.
+5. El resto (PDF de ficha, edificios, terminaciones, super-admin, dominios custom, más filtros vía `attrs_json`) es valor agregado sobre una base que ya vende.
