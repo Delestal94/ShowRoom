@@ -91,6 +91,7 @@ Para que quede claro qué **no** hay que tocar:
 - Auth completa con Supabase (sign-up, sign-in, confirmación por mail, sign-out, protección de rutas)
 - Auto-provisioning de tenant en el primer login
 - Gestión de unidades: alta individual, importación masiva desde planilla, edición inline, borrado
+- Ficha pública por unidad con contenido propio y URL compartible
 - Aislamiento multi-tenant real con RLS a nivel de Postgres
 - Planes y suscripciones con Mercado Pago, con límites aplicados de verdad
 - CRUD de proyectos completo: crear, listar, ver, editar, publicar/despublicar, borrar
@@ -110,7 +111,7 @@ Para que quede claro qué **no** hay que tocar:
 
 Contrastando su video de presentación contra lo que tenemos, aparecieron dos huecos que no estaban en ninguna lista previa:
 
-- **Ficha técnica por unidad con contenido propio** (renders, planos, 360 y dron de *esa* unidad). `tours.unitId` ya existe en el schema, sin UI. Es la brecha más grande respecto de ellos.
+- ~~**Ficha técnica por unidad con contenido propio**~~ — HECHO (2026-08-18). `/[proyecto]/unidad/[código]` con URL propia compartible, precio por m², contenido propio de la unidad y fallback avisado al recorrido del proyecto. Admin en `/dashboard/projects/[id]/units/[unitId]`.
 - **Avances de obra + aviso automático a inversores.** Específico de la preventa: la obra dura años y esto es lo que sostiene el vínculo con el comprador mientras tanto. Requiere tabla nueva y envío de mails.
 
 Más baratos y con impacto visible:
@@ -124,9 +125,10 @@ Más baratos y con impacto visible:
 
 Los tres primeros ítems de la lista original ya están hechos (unidades, publicar/editar, RLS), más billing. Lo que sigue:
 
-1. **Ficha técnica por unidad** — la brecha más grande contra Urbania, y media base ya está puesta.
-2. **Mapa de ubicación** — de lo más barato con más impacto en la página pública.
-3. **Avances de obra** — lo que hace que el comprador vuelva durante los años de obra.
-4. **WhatsApp** ya está; falta el **timeline del lead**, barato y mejora la herramienta de venta que ya se usa.
+1. **Mapa de ubicación** — `projects.geo` ya existe sin usar. De lo más barato con más impacto en la página pública.
+2. **Avances de obra + aviso a inversores** — lo que hace que el comprador vuelva durante los años de obra. Requiere tabla nueva y un proveedor de mail.
+3. **Timeline del lead** — el servicio ya existe (`addLeadActivity`, `getLeadActivities`), falta la UI. Barato.
+4. **Embed (iframe) + QR + modo kiosco** — Urbania lo destaca como forma de distribución; poco esfuerzo.
 5. **Links de broker con tracking** — desbloquea los reportes segregados.
-6. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom, invitaciones) es valor agregado sobre una base que ya vende.
+6. **Navegación piso por piso** en el visor 3D.
+7. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom, invitaciones, más filtros vía `attrs_json`) es valor agregado sobre una base que ya vende.
