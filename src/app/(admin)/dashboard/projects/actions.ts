@@ -11,6 +11,7 @@ import {
 } from '@/modules/projects/project-service'
 import { listUnitsByProject } from '@/modules/units/unit-service'
 import { listToursByProject } from '@/modules/tours/tour-service'
+import { checkCanCreate } from '@/modules/billing/billing-service'
 
 export interface CreateProjectState {
   error?: string
@@ -43,6 +44,9 @@ export async function createProjectAction(
   }
 
   const tenant = await requireCurrentTenant()
+
+  const limitError = await checkCanCreate(tenant.tenantId, 'project')
+  if (limitError) return { error: limitError }
 
   let projectId: string
   try {

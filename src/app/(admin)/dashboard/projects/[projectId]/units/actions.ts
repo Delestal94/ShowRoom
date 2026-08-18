@@ -10,6 +10,7 @@ import {
   deleteUnit,
 } from '@/modules/units/unit-service'
 import { UNIT_STATUSES, type UnitStatus } from '@/modules/units/unit-constants'
+import { checkCanCreate } from '@/modules/billing/billing-service'
 
 export interface UnitActionState {
   error?: string
@@ -77,6 +78,9 @@ export async function createUnitAction(
   } catch {
     return { error: 'No tenés acceso a este proyecto.' }
   }
+
+  const limitError = await checkCanCreate(tenant.tenantId, 'unit')
+  if (limitError) return { error: limitError }
 
   try {
     await createUnit(tenant.tenantId, projectId, {
@@ -226,6 +230,9 @@ export async function importUnitsAction(
   if (rows.length === 0) {
     return { error: `Ninguna fila válida. ${problems.slice(0, 3).join(' · ')}` }
   }
+
+  const limitError = await checkCanCreate(tenant.tenantId, 'unit', rows.length)
+  if (limitError) return { error: limitError }
 
   try {
     // One statement in one transaction: a partial import that leaves half

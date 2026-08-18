@@ -35,11 +35,21 @@ Un tour subido quedaba con `status: 'processing'` para siempre — no hay ningú
 
 ## 🟠 Alto impacto — el producto "casi" funciona sin esto
 
-### Billing real
-- No hay checkout de Stripe en ningún lado (`stripe.checkout.sessions.create` no se llama desde nada). El webhook (`/api/webhooks/stripe`) *recibe* eventos pero no hay forma de que un tenant efectivamente elija un plan y pague.
-- `plans` es una tabla vacía sin seed; los precios que se ven en la landing están hardcodeados en `pricing.tsx`, sin conexión a Stripe Price IDs reales.
-- No hay enforcement de `unit_limit` por plan — un tenant en el plan gratuito podría cargar unidades ilimitadas.
-- `.env.local` tiene claves de Stripe de placeholder (`sk_test_1234567890`), así que ni siquiera está configurado para probar en modo test.
+### ~~Billing real~~ — HECHO (2026-08-18), falta cargar credenciales
+
+Se migró de Stripe a **Mercado Pago**: Stripe no opera en Argentina (46 países soportados, Argentina no está), así que la única alternativa con Stripe habría sido armar una LLC en EE.UU.
+
+Implementado:
+- Cliente de la API de suscripciones de Mercado Pago (`preapproval_plan` + `preapproval`).
+- Página `/dashboard/billing`: plan actual, uso contra los límites, planes disponibles, cancelación.
+- Webhook en `/api/webhooks/mercadopago` con **verificación de firma HMAC** — sin eso cualquiera podría mandar un evento falso de "authorized" y habilitarse un plan pago gratis.
+- Enforcement real de límites: `checkCanCreate()` corre antes de crear proyectos y unidades, incluida la importación masiva (chequea el lote completo, no fila por fila).
+- Plan gratuito por defecto (1 proyecto, 10 unidades) para tenants sin suscripción.
+- Una suscripción `pending` **no** habilita límites pagos: sólo `authorized` cuenta.
+- Seed de planes (`npm run seed:plans`) que además los publica en Mercado Pago.
+- La landing ahora lee precios de la base en vez de tenerlos hardcodeados.
+
+**Pendiente (requiere tu cuenta de Mercado Pago):** cargar `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET`, y volver a correr `npm run seed:plans` para publicar los planes. Hasta entonces la página muestra los planes pero no deja suscribirse.
 
 ### ~~Aislamiento multi-tenant (RLS)~~ — HECHO (2026-08-18)
 Implementado con un rol de DB dedicado sin `BYPASSRLS`, políticas reescritas para no romper el storefront público, y helpers `withTenant()`/`withUser()`. Verificado con `scripts/test-tenant-isolation.mjs` (15/15): el rol de la app no puede leer ni escribir datos de otro tenant ni nombrando el id directamente. Detalle completo en `CODIGO_MUERTO.md` sección 6.
@@ -82,6 +92,7 @@ Para que quede claro qué **no** hay que tocar:
 - Auto-provisioning de tenant en el primer login
 - Gestión de unidades: alta individual, importación masiva desde planilla, edición inline, borrado
 - Aislamiento multi-tenant real con RLS a nivel de Postgres
+- Planes y suscripciones con Mercado Pago, con límites aplicados de verdad
 - CRUD de proyectos completo: crear, listar, ver, editar, publicar/despublicar, borrar
 - Subida de tours (GLB, 360°, foto, video) vía URL firmada directa a Supabase Storage
 - Visor 3D (GLB) con toggle día/atardecer/noche
@@ -99,8 +110,7 @@ Para que quede claro qué **no** hay que tocar:
 
 Los tres primeros ítems de la lista original ya están hechos (unidades, publicar/editar, RLS). Lo que sigue:
 
-1. **Billing** — checkout de Stripe + seed de `plans` + enforcement de `unit_limit`. Es lo único que separa al producto de poder cobrar.
-2. **WhatsApp real y timeline del lead** — barato de hacer y mejora directamente la herramienta de venta que ya se usa.
-3. **Links de broker con tracking** — desbloquea los reportes segregados, que es diferencial frente a mandar PDFs.
-4. **Invitar usuarios al tenant** — hoy es un solo usuario por inmobiliaria; limita a equipos.
-5. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom) es valor agregado sobre una base que ya vende.
+1. **WhatsApp real y timeline del lead** — barato de hacer y mejora directamente la herramienta de venta que ya se usa.
+2. **Links de broker con tracking** — desbloquea los reportes segregados, que es diferencial frente a mandar PDFs.
+3. **Invitar usuarios al tenant** — hoy es un solo usuario por inmobiliaria; limita a equipos.
+4. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom) es valor agregado sobre una base que ya vende.

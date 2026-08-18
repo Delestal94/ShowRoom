@@ -12,6 +12,7 @@ const ICONS = {
   projects: 'M4 7.5A1.5 1.5 0 0 1 5.5 6h3.2l1.8 2h8A1.5 1.5 0 0 1 20 9.5v8A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-10Z',
   leads: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 10.5a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5ZM20 19v-1.5a3.5 3.5 0 0 0-2.5-3.35',
   analytics: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  billing: 'M3 9.5h18M5 6h14a1.5 1.5 0 011.5 1.5v9A1.5 1.5 0 0119 18H5a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 015 6ZM7 14h3',
   settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8-3.5a8 8 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a8 8 0 0 0-2.1-1.2L15 3H9l-.5 2.7a8 8 0 0 0-2.1 1.2l-2.3-1-2 3.4 2 1.5a8 8 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a8 8 0 0 0 2.1 1.2L9 21h6l.5-2.7a8 8 0 0 0 2.1-1.2l2.3 1 2-3.4-2-1.5c.07-.4.1-.8.1-1.2Z',
 }
 
@@ -50,6 +51,7 @@ export function DashboardShell({
     { href: `${base}/projects`, label: 'Proyectos', icon: ICONS.projects },
     { href: `${base}/crm`, label: 'Leads', icon: ICONS.leads },
     { href: `${base}/analytics`, label: 'Analytics', icon: ICONS.analytics },
+    { href: `${base}/billing`, label: 'Plan', icon: ICONS.billing },
     { href: `${base}/settings`, label: 'Ajustes', icon: ICONS.settings },
   ]
 

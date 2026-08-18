@@ -32,10 +32,18 @@ export const tenants = pgTable(
 
 export const plans = pgTable('plans', {
   id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 50 }).notNull(), // Pro, Lite, Solo
+  /** Stable identifier used in code and URLs: solo | lite | pro */
+  slug: varchar('slug', { length: 30 }).notNull().unique(),
+  name: varchar('name', { length: 50 }).notNull(),
   unitLimit: integer('unit_limit').notNull(),
-  stripePriceId: text('stripe_price_id'),
-  featuresJson: jsonb('features_json').default({}),
+  projectLimit: integer('project_limit').notNull().default(1),
+  /** Monthly price. Mercado Pago charges Argentine cards, so this is ARS. */
+  priceMonthly: decimal('price_monthly', { precision: 12, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).notNull().default('ARS'),
+  /** preapproval_plan id returned by Mercado Pago. */
+  mpPreapprovalPlanId: text('mp_preapproval_plan_id'),
+  featuresJson: jsonb('features_json').default([]),
+  sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -47,8 +55,10 @@ export const subscriptions = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     planId: uuid('plan_id').references(() => plans.id),
-    stripeSubscriptionId: text('stripe_subscription_id').unique(),
-    status: varchar('status', { length: 50 }).notNull().default('active'),
+    /** preapproval id from Mercado Pago (one per subscribed tenant). */
+    mpPreapprovalId: text('mp_preapproval_id').unique(),
+    /** pending | authorized | paused | cancelled — mirrors MP's own states. */
+    status: varchar('status', { length: 50 }).notNull().default('pending'),
     currentPeriodEnd: timestamp('current_period_end'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
