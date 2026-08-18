@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import {
@@ -221,6 +222,12 @@ function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string })
             </>
           ) : (
             <>
+              <Link
+                href={`/dashboard/projects/${projectId}/units/${unit.id}`}
+                className="inline-flex h-9 items-center rounded-full px-4 text-sm font-medium text-primary transition-colors hover:bg-surface-2"
+              >
+                Contenido
+              </Link>
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
                 Editar
               </Button>

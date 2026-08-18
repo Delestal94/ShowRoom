@@ -1,6 +1,6 @@
 import { units } from '@/server/db/schema'
 import { eq, and } from 'drizzle-orm'
-import { withTenant } from '@/server/db/tenant-db'
+import { withTenant, publicDb } from '@/server/db/tenant-db'
 
 export async function createUnit(
   tenantId: string,
@@ -48,6 +48,17 @@ export async function createUnitsBulk(
       .values(rows.map((r) => ({ tenantId, projectId, ...r })))
       .returning()
   )
+}
+
+/**
+ * Storefront lookup by the code shown in the URL. Runs with no tenant
+ * context, so `units_select` only returns it when the parent project is
+ * published — an unpublished project's units stay invisible.
+ */
+export async function getPublicUnitByCode(projectId: string, code: string) {
+  return publicDb.query.units.findFirst({
+    where: and(eq(units.projectId, projectId), eq(units.code, code)),
+  })
 }
 
 export async function getUnit(tenantId: string, unitId: string) {

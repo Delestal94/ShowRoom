@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { trackEvent } from '@/lib/analytics'
 import { cn } from '@/lib/cn'
 import { UNIT_STATUS_LABEL } from '@/modules/units/unit-constants'
@@ -84,26 +85,29 @@ export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGrid
         const sold = unit.status === 'sold'
 
         return (
-          <button
+          <Link
             key={unit.id}
-            type="button"
-            disabled={sold}
+            href={
+              projectSlug
+                ? `/${projectSlug}/unidad/${encodeURIComponent(unit.code)}`
+                : '#'
+            }
             onClick={() => {
-              if (sold) return
               onUnitSelect?.(unit)
               if (projectSlug) {
                 trackEvent({
                   type: 'unit_view',
                   projectSlug,
-                  metadata: { unit_id: unit.id, unit_code: unit.code },
+                  unitId: unit.id,
+                  metadata: { unit_id: unit.id, unit_code: unit.code, page: 'grid' },
                 })
               }
             }}
             className={cn(
-              'group rounded-2xl border border-border bg-surface/50 p-5 text-left transition-colors',
-              sold
-                ? 'cursor-not-allowed opacity-60'
-                : 'hover:border-primary/50 hover:bg-surface'
+              'group block rounded-2xl border border-border bg-surface/50 p-5 text-left transition-colors hover:border-primary/50 hover:bg-surface',
+              // Sold units stay clickable — the detail page is still useful
+              // as a reference, and it says clearly that it's sold.
+              sold && 'opacity-60'
             )}
           >
             <div className="flex items-start justify-between gap-3">
@@ -136,7 +140,11 @@ export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGrid
                 </dd>
               </div>
             </dl>
-          </button>
+
+            <p className="mt-4 text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+              Ver ficha →
+            </p>
+          </Link>
         )
       })}
     </div>

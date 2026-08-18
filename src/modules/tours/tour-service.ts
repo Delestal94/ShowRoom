@@ -65,6 +65,17 @@ export async function listPublicToursByProject(projectId: string) {
   })
 }
 
+/**
+ * Content attached to one specific unit, for its public detail page.
+ * Same published-project gate as listPublicToursByProject.
+ */
+export async function listPublicToursByUnit(unitId: string) {
+  return publicDb.query.tours.findMany({
+    where: eq(tours.unitId, unitId),
+    orderBy: (t) => [t.createdAt],
+  })
+}
+
 export async function listToursByUnit(tenantId: string, unitId: string) {
   return withTenant(tenantId, (tx) =>
     tx.query.tours.findMany({

@@ -179,6 +179,12 @@ export const units = pgTable(
   (table) => ({
     projectIdIdx: index('units_project_id_idx').on(table.projectId),
     tenantIdIdx: index('units_tenant_id_idx').on(table.tenantId),
+    // El código identifica la unidad en su URL pública
+    // (/[projectSlug]/unidad/[code]), así que no puede repetirse.
+    projectCodeIdx: uniqueIndex('units_project_code_idx').on(
+      table.projectId,
+      table.code
+    ),
   })
 )
 

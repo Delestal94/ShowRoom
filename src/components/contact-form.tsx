@@ -7,6 +7,8 @@ import { trackEvent } from '@/lib/analytics'
 interface ContactFormProps {
   projectSlug: string
   projectName: string
+  /** When present, the enquiry is attributed to this unit. */
+  unitCode?: string
   /** E.164 without symbols, e.g. 5491122334455. Hides the button when absent. */
   whatsappNumber?: string | null
 }
@@ -14,7 +16,12 @@ interface ContactFormProps {
 const inputCls =
   'h-11 w-full rounded-md border border-border bg-surface-2/60 px-3.5 text-sm text-fg placeholder:text-fg-subtle transition-colors hover:border-border-strong focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25'
 
-export function ContactForm({ projectSlug, projectName, whatsappNumber }: ContactFormProps) {
+export function ContactForm({
+  projectSlug,
+  projectName,
+  unitCode,
+  whatsappNumber,
+}: ContactFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -29,7 +36,15 @@ export function ContactForm({ projectSlug, projectName, whatsappNumber }: Contac
       const res = await fetch(`/api/projects/${projectSlug}/leads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          // Prepending the unit keeps the context in the lead even though
+          // leads aren't linked to units in the schema yet.
+          message: unitCode
+            ? `[Unidad ${unitCode}] ${form.message}`.trim()
+            : form.message,
+          unitCode,
+        }),
       })
 
       if (!res.ok) {
@@ -42,7 +57,7 @@ export function ContactForm({ projectSlug, projectName, whatsappNumber }: Contac
       trackEvent({
         type: 'contact_form_submit',
         projectSlug,
-        metadata: { source: 'storefront' },
+        metadata: { source: 'storefront', unit_code: unitCode },
       })
     } catch {
       setError('No pudimos enviar tu consulta. Probá de nuevo.')
@@ -69,13 +84,17 @@ export function ContactForm({ projectSlug, projectName, whatsappNumber }: Contac
 
   const waHref = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-        `Hola, me interesa el proyecto ${projectName}.`
+        unitCode
+          ? `Hola, me interesa la unidad ${unitCode} de ${projectName}.`
+          : `Hola, me interesa el proyecto ${projectName}.`
       )}`
     : null
 
   return (
     <div className="rounded-2xl border border-border bg-surface/60 p-6 backdrop-blur">
-      <h3 className="font-semibold text-fg">¿Te interesa?</h3>
+      <h3 className="font-semibold text-fg">
+        {unitCode ? `¿Te interesa la ${unitCode}?` : '¿Te interesa?'}
+      </h3>
       <p className="mt-1 text-sm text-fg-muted">
         Dejanos tus datos y te contactamos con toda la información.
       </p>
@@ -160,7 +179,11 @@ export function ContactForm({ projectSlug, projectName, whatsappNumber }: Contac
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              trackEvent({ type: 'whatsapp_click', projectSlug, metadata: {} })
+              trackEvent({
+                type: 'whatsapp_click',
+                projectSlug,
+                metadata: { unit_code: unitCode },
+              })
             }
             className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-success/40 bg-success/10 text-sm font-medium text-success transition-colors hover:bg-success/20"
           >

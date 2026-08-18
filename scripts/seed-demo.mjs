@@ -53,6 +53,20 @@ const ASSETS = {
     kind: 'image',
     folder: 'image',
   },
+  interior: {
+    url: 'https://picsum.photos/seed/showroom-interior/1600/900',
+    name: 'render-interior.jpg',
+    contentType: 'image/jpeg',
+    kind: 'image',
+    folder: 'image',
+  },
+  plano: {
+    url: 'https://picsum.photos/seed/showroom-plano/1200/1200',
+    name: 'plano.jpg',
+    contentType: 'image/jpeg',
+    kind: 'image',
+    folder: 'image',
+  },
 }
 
 const cache = new Map()
@@ -215,6 +229,28 @@ for (const proy of PROYECTOS) {
        JSON.stringify({ seededAt: new Date().toISOString(), demo: true })])
   }
 
+  // Contenido propio en las primeras unidades: renders interiores, plano y
+  // una 360 de la unidad. El resto cae al recorrido general del proyecto,
+  // que es justamente el caso que la ficha tiene que resolver bien.
+  const conContenido = unitIds.slice(0, 4)
+  for (let i = 0; i < conContenido.length; i++) {
+    const unitId = conContenido[i]
+    const código = proy.unidades[i].code
+    const propios = i === 0 ? ['interior', 'plano', 'pano'] : ['interior', 'plano']
+
+    for (const key of propios) {
+      const asset = ASSETS[key]
+      const storageKey = `${tenant.id}/${projectId}/unidades/${código}/${asset.folder}/${asset.name}`
+      const cdnUrl = await upload(storageKey, buffers[key], asset.contentType)
+
+      await c.query(
+        `insert into tours (tenant_id, project_id, unit_id, kind, storage_key, cdn_url, status, metadata_json)
+         values ($1,$2,$3,$4,$5,$6,'ready',$7)`,
+        [tenant.id, projectId, unitId, asset.kind, storageKey, cdnUrl,
+         JSON.stringify({ demo: true, unidad: código })])
+    }
+  }
+
   // Leads repartidos por el pipeline, fechados en los últimos 20 días.
   const cantidadLeads = proy.slug === 'torre-almagro' ? 8 : 4
   for (let i = 0; i < cantidadLeads; i++) {
@@ -284,7 +320,8 @@ for (const proy of PROYECTOS) {
   console.log(`\n${proy.name}`)
   console.log(`  /${proy.slug}`)
   console.log(`  ${proy.unidades.length} unidades (${disponibles} disponibles) · ` +
-              `${proy.tours.length} tours · ${cantidadLeads} leads · ${eventos} eventos`)
+              `${proy.tours.length} tours de proyecto · ${conContenido.length} unidades con contenido propio`)
+  console.log(`  ${cantidadLeads} leads · ${eventos} eventos`)
 }
 
 // Los tours viejos quedaron en 'processing' porque se subieron antes del
