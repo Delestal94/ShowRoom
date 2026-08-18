@@ -5,9 +5,11 @@ import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { listToursByProject } from '@/modules/tours/tour-service'
 import { getSiteUrl } from '@/lib/site-url'
+import { UNIT_STATUS_LABEL } from '@/modules/units/unit-constants'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { ButtonLink } from '@/components/ui/button'
 import { CopyLinkButton } from './copy-link-button'
+import { PublishToggle, DeleteProjectButton } from './project-controls'
 
 export const metadata: Metadata = { title: 'Proyecto' }
 
@@ -42,18 +44,27 @@ export default async function ProjectDetailPage({
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-title font-semibold text-fg">{project.name}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-title font-semibold text-fg">{project.name}</h1>
+            <span
+              className={
+                project.status === 'published'
+                  ? 'rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success'
+                  : 'rounded-full bg-warning/15 px-3 py-1 text-xs font-medium text-warning'
+              }
+            >
+              {project.status === 'published' ? 'Publicado' : 'Borrador'}
+            </span>
+          </div>
           <p className="mt-1 text-fg-muted">{project.address || 'Sin dirección'}</p>
         </div>
-        <span
-          className={
-            project.status === 'published'
-              ? 'rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success'
-              : 'rounded-full bg-warning/15 px-3 py-1 text-xs font-medium text-warning'
-          }
-        >
-          {project.status === 'published' ? 'Publicado' : 'Borrador'}
-        </span>
+
+        <div className="flex items-start gap-2">
+          <ButtonLink href={`/dashboard/projects/${project.id}/edit`} size="sm" variant="outline">
+            Editar
+          </ButtonLink>
+          <PublishToggle projectId={project.id} status={project.status} />
+        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -66,10 +77,19 @@ export default async function ProjectDetailPage({
         <section className="rounded-2xl border border-border bg-surface/50 p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-fg">Unidades</h2>
+            <ButtonLink
+              href={`/dashboard/projects/${project.id}/units`}
+              size="sm"
+              variant="outline"
+            >
+              Gestionar
+            </ButtonLink>
           </div>
 
           {!project.units || project.units.length === 0 ? (
-            <p className="mt-4 text-sm text-fg-muted">Todavía no hay unidades cargadas.</p>
+            <p className="mt-4 text-sm text-fg-muted">
+              Todavía no hay unidades cargadas. Sin inventario, la página pública se ve vacía.
+            </p>
           ) : (
             <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
               {project.units.map((unit) => (
@@ -79,7 +99,7 @@ export default async function ProjectDetailPage({
                 >
                   <span className="font-medium text-fg">{unit.code}</span>
                   <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs text-fg-muted">
-                    {unit.status}
+                    {UNIT_STATUS_LABEL[unit.status] ?? unit.status}
                   </span>
                 </div>
               ))}
@@ -134,6 +154,13 @@ export default async function ProjectDetailPage({
             {publicUrl}
           </div>
           <CopyLinkButton url={publicUrl} />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-danger/25 p-6">
+        <h3 className="font-semibold text-fg">Zona de riesgo</h3>
+        <div className="mt-4">
+          <DeleteProjectButton projectId={project.id} />
         </div>
       </section>
     </div>

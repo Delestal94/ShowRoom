@@ -53,6 +53,7 @@ export async function updateProject(
   projectId: string,
   data: Partial<{
     name: string
+    slug: string
     address: string
     status: string
   }>
