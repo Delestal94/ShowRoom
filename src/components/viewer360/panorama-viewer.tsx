@@ -18,23 +18,48 @@ export function PanoramaViewer({ imageUrl, title }: PanoramaViewerProps) {
   const viewerId = useRef(`panorama-${Math.random().toString(36).substring(7)}`)
 
   useEffect(() => {
-    if (!containerRef.current || !window.pannellum) return
+    if (!containerRef.current) return
 
-    try {
-      // Initialize Pannellum viewer
-      window.pannellum.viewer(viewerId.current, {
-        type: 'equirectangular',
-        panorama: imageUrl,
-        autoLoad: true,
-        showControls: true,
-        mouseZoom: true,
-        keyboardZoom: true,
-        pitch: 0,
-        yaw: 0,
-        hfov: 100,
-      })
-    } catch (error) {
-      console.error('Failed to initialize Pannellum viewer:', error)
+    let viewer: { destroy?: () => void } | null = null
+    let cancelled = false
+
+    // Pannellum loads from a CDN script, so it may not be on `window` yet when
+    // this mounts. Poll briefly instead of silently rendering an empty box.
+    const start = Date.now()
+    const init = () => {
+      if (cancelled) return
+
+      if (!window.pannellum) {
+        if (Date.now() - start > 10_000) {
+          console.error('Pannellum no cargó: el visor 360 no se puede inicializar')
+          return
+        }
+        window.setTimeout(init, 100)
+        return
+      }
+
+      try {
+        viewer = window.pannellum.viewer(viewerId.current, {
+          type: 'equirectangular',
+          panorama: imageUrl,
+          autoLoad: true,
+          showControls: true,
+          mouseZoom: true,
+          keyboardZoom: true,
+          pitch: 0,
+          yaw: 0,
+          hfov: 100,
+        })
+      } catch (error) {
+        console.error('Failed to initialize Pannellum viewer:', error)
+      }
+    }
+
+    init()
+
+    return () => {
+      cancelled = true
+      viewer?.destroy?.()
     }
   }, [imageUrl])
 

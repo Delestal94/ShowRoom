@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import { db } from '@/server/db/client'
 import { projects } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
@@ -36,15 +37,10 @@ export default async function StorefrontPage({
     },
   })
 
+  // Render a real 404 rather than a 200 with an error message, so unknown
+  // slugs aren't treated as valid pages by crawlers or link previews.
   if (!project || project.status !== 'published') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-gray-900">Project Not Found</h1>
-          <p className="text-gray-600">The project you&apos;re looking for doesn&apos;t exist or is not published yet.</p>
-        </div>
-      </div>
-    )
+    notFound()
   }
 
   // Fetch tours for this project
