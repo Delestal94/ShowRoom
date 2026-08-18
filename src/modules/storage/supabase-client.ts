@@ -22,7 +22,9 @@ export async function generateUploadUrl(input: UploadInput) {
   // Generate a signed URL for upload (valid for 1 hour)
   const { data, error } = await supabase.storage
     .from(bucketName)
-    .createSignedUploadUrl(storagePath, 3600) // 1 hour expiry
+    .createSignedUploadUrl(storagePath, {
+      upsert: false,
+    })
 
   if (error) {
     console.error('Error generating upload URL:', error)
