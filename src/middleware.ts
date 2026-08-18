@@ -66,6 +66,19 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Atribución por broker: el código llega en ?ref= al aterrizar, pero el
+  // visitante navega varias páginas antes de dejar sus datos. Se guarda en
+  // una cookie para que el lead siga atribuido al broker que lo trajo.
+  const ref = request.nextUrl.searchParams.get('ref')
+  if (ref && /^[A-Z0-9]{4,16}$/.test(ref)) {
+    response.cookies.set('sr_ref', ref, {
+      maxAge: 60 * 60 * 24 * 30,
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+    })
+  }
+
   if (!user && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone()
     url.pathname = '/sign-in'

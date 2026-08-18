@@ -5,6 +5,7 @@ import { projects } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { listPublicToursByProject } from '@/modules/tours/tour-service'
 import { listPublicUpdates } from '@/modules/construction/construction-service'
+import { resolveTrackingCode, registerClick } from '@/modules/brokers/broker-service'
 import { StorefrontClient } from '@/components/storefront-client'
 
 /**
@@ -67,7 +68,7 @@ export default async function StorefrontPage({
   searchParams,
 }: {
   params: { projectSlug: string }
-  searchParams: { embed?: string }
+  searchParams: { embed?: string; ref?: string }
 }) {
   const project = await findPublishedProject(params.projectSlug)
 
@@ -75,6 +76,17 @@ export default async function StorefrontPage({
   // aren't treated as valid pages by crawlers or link previews.
   if (!project || project.status !== 'published') {
     notFound()
+  }
+
+  // Apertura del link de broker. Se cuenta acá y no en el middleware para
+  // no sumar una consulta a la base en cada request del sitio.
+  if (searchParams.ref) {
+    const link = await resolveTrackingCode(searchParams.ref)
+    if (link && link.projectId === project.id) {
+      await registerClick(link.id).catch(() => {
+        // Un contador que falla no debe tirar abajo la página.
+      })
+    }
   }
 
   const [tours, updates] = await Promise.all([

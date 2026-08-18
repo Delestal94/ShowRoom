@@ -7,6 +7,7 @@ export interface RecordEventInput {
   projectId: string
   sessionId: string
   brokerMemberId?: string
+  brokerLinkId?: string
   eventType: string
   payload?: Record<string, any>
 }
@@ -21,6 +22,7 @@ export async function recordEvent(input: RecordEventInput) {
       projectId: input.projectId,
       sessionId: input.sessionId,
       brokerMemberId: input.brokerMemberId,
+      brokerLinkId: input.brokerLinkId,
       eventType: input.eventType,
       payloadJson: input.payload,
     })

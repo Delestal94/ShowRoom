@@ -162,6 +162,24 @@ export default async function ProjectDetailPage({
         </div>
       </section>
 
+      <section className="mt-6 rounded-2xl border border-border bg-surface/50 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-fg">Brokers</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Un link por broker para saber quién trae cada consulta.
+            </p>
+          </div>
+          <ButtonLink
+            href={`/dashboard/projects/${project.id}/brokers`}
+            size="sm"
+            variant="outline"
+          >
+            Gestionar brokers
+          </ButtonLink>
+        </div>
+      </section>
+
       <div className="mt-6">
         <SharePanel
           publicUrl={publicUrl}

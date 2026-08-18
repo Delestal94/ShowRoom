@@ -254,6 +254,8 @@ export const leads = pgTable(
     brokerMemberId: uuid('broker_member_id').references(() => memberships.id, {
       onDelete: 'set null',
     }),
+    /** Link por el que llegó, para atribuir la venta al broker. */
+    brokerLinkId: uuid('broker_link_id'),
     name: text('name').notNull(),
     email: text('email'),
     phone: text('phone'),
@@ -295,11 +297,15 @@ export const brokerLinks = pgTable(
     projectId: uuid('project_id').references(() => projects.id, {
       onDelete: 'set null',
     }),
+    /** Opcional: sólo cuando el broker además tiene cuenta en la app. */
     brokerMemberId: uuid('broker_member_id').references(() => memberships.id, {
       onDelete: 'set null',
     }),
+    /** Nombre visible del broker. Los externos no tienen membership. */
+    brokerName: text('broker_name'),
     trackingCode: text('tracking_code').notNull().unique(),
-    url: text('url').notNull(),
+    url: text('url'),
+    clicks: integer('clicks').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
@@ -357,6 +363,7 @@ export const analyticsEvents = pgTable(
     brokerMemberId: uuid('broker_member_id').references(() => memberships.id, {
       onDelete: 'set null',
     }),
+    brokerLinkId: uuid('broker_link_id'),
     eventType: varchar('event_type', { length: 50 }).notNull(),
     payloadJson: jsonb('payload_json'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
