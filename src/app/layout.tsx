@@ -1,30 +1,46 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
+const sans = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
-  title: 'ShowRoom - Immobiliary Tours 3D',
-  description: 'Interactive 3D tours for real estate sales',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://show-room-ten.vercel.app'),
+  title: {
+    default: 'ShowRoom — Vendé en pozo con tours 3D interactivos',
+    template: '%s · ShowRoom',
+  },
+  description:
+    'Plataforma para desarrolladoras inmobiliarias: tours 3D navegables, recorridos 360°, buscador de unidades, CRM de leads y analytics — todo en un mismo lugar.',
+  keywords: ['tours 3D', 'inmobiliaria', 'preventa', 'real estate', 'recorridos virtuales', '360'],
+  openGraph: {
+    type: 'website',
+    title: 'ShowRoom — Vendé en pozo con tours 3D interactivos',
+    description:
+      'Tours 3D navegables, buscador de unidades, CRM y analytics para desarrolladoras inmobiliarias.',
+    siteName: 'ShowRoom',
+  },
+  twitter: { card: 'summary_large_image' },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export const viewport: Viewport = {
+  themeColor: '#0d0e14',
+  colorScheme: 'dark light',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        {/* Pannellum CSS for 360 viewer */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css"
-        />
-        {/* Pannellum JS for 360 viewer */}
-        <script
-          async
-          src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"
-        ></script>
-      </head>
+    <html lang="es" data-theme="dark" className={`${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   )

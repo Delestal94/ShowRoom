@@ -10,16 +10,6 @@ const nextConfig = {
       },
     ],
   },
-  async rewrites() {
-    return {
-      beforeFiles: [
-        {
-          source: '/.clerk/:path*',
-          destination: 'https://accounts.clerk.dev/:path*',
-        },
-      ],
-    }
-  },
 }
 
 module.exports = nextConfig

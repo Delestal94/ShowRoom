@@ -1,11 +1,11 @@
-import { auth } from '@clerk/nextjs/server'
+import { getUser } from '@/lib/supabase/server'
 import { db } from '@/server/db/client'
 import { tenants, subscriptions } from '@/server/db/schema'
 
 export async function POST(request: Request) {
-  const { userId } = await auth()
+  const user = await getUser()
 
-  if (!userId) {
+  if (!user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

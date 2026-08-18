@@ -1,39 +1,94 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export function middleware(req: NextRequest) {
-  // Extract tenant from subdomain or domain
-  const hostname = req.headers.get('host') || ''
+/**
+ * Hosts that never carry a tenant subdomain: local dev and Vercel-generated
+ * deployment URLs. Without this, `show-room-ten.vercel.app` would resolve
+ * "show-room-ten" as a tenant slug.
+ */
+function resolveTenantSlug(hostname: string): string | null {
+  const host = hostname.split(':')[0]
 
-  // Handle subdomains: tenant.showroom.local or tenant.showroom.app
-  const subdomainMatch = hostname.match(/^([a-z0-9-]+)\./)
-  const tenantSlug = subdomainMatch ? subdomainMatch[1] : null
+  if (host === 'localhost' || host.endsWith('.vercel.app') || host === 'vercel.app') {
+    return null
+  }
 
-  // Store tenant in headers for downstream usage
-  const requestHeaders = new Headers(req.headers)
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN
+  if (rootDomain && host.endsWith(`.${rootDomain}`)) {
+    const slug = host.slice(0, -(rootDomain.length + 1))
+    return slug && slug !== 'www' ? slug : null
+  }
+
+  return null
+}
+
+const PROTECTED_PREFIXES = ['/dashboard']
+const AUTH_ROUTES = ['/sign-in', '/sign-up']
+
+export async function middleware(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers)
+  const tenantSlug = resolveTenantSlug(request.headers.get('host') ?? '')
+
   if (tenantSlug) {
     requestHeaders.set('x-tenant-slug', tenantSlug)
+  } else {
+    requestHeaders.delete('x-tenant-slug')
   }
 
-  // Don't require tenant for public routes and API routes
-  const pathname = req.nextUrl.pathname
-  const isPublic = pathname.startsWith('/sign-in') ||
-                   pathname.startsWith('/sign-up') ||
-                   pathname.startsWith('/(public)') ||
-                   pathname.startsWith('/api/')
+  let response = NextResponse.next({ request: { headers: requestHeaders } })
 
-  // If not a public route and no tenant, redirect to sign-in
-  if (!isPublic && !tenantSlug) {
-    return NextResponse.redirect(new URL('/sign-in', req.url))
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          response = NextResponse.next({ request: { headers: requestHeaders } })
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+          response = NextResponse.next({ request: { headers: requestHeaders } })
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+
+  // Refreshes the auth token and keeps cookies in sync.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { pathname } = request.nextUrl
+
+  if (!user && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/sign-in'
+    url.searchParams.set('redirectTo', pathname)
+    return NextResponse.redirect(url)
   }
 
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  })
+  if (user && AUTH_ROUTES.includes(pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+
+  return response
 }
 
 export const config = {
-  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: [
+    /*
+     * Everything except static assets and image files — those never need
+     * session refresh and skipping them keeps middleware cost down.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|glb|hdr)$).*)',
+  ],
 }
