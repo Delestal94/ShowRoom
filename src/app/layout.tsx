@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { getSiteUrl } from '@/lib/site-url'
 import './globals.css'
 
 const sans = Inter({
@@ -15,7 +16,7 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://show-room-ten.vercel.app'),
+  metadataBase: getSiteUrl(),
   title: {
     default: 'ShowRoom — Vendé en pozo con tours 3D interactivos',
     template: '%s · ShowRoom',

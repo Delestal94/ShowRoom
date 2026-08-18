@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { getSiteUrl } from '@/lib/site-url'
 
 export interface AuthState {
   error?: string
@@ -70,7 +71,7 @@ export async function signUpAction(
     return { error: 'Las contraseñas no coinciden.' }
   }
 
-  const origin = headers().get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const origin = headers().get('origin') ?? getSiteUrl().origin
   const supabase = createClient()
 
   const { data, error } = await supabase.auth.signUp({
