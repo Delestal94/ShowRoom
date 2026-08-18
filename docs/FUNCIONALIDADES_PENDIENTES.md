@@ -106,11 +106,27 @@ Para que quede claro qué **no** hay que tocar:
 
 ---
 
+## Del análisis de Urbania (ver `ANALISIS_URBANIA.md`)
+
+Contrastando su video de presentación contra lo que tenemos, aparecieron dos huecos que no estaban en ninguna lista previa:
+
+- **Ficha técnica por unidad con contenido propio** (renders, planos, 360 y dron de *esa* unidad). `tours.unitId` ya existe en el schema, sin UI. Es la brecha más grande respecto de ellos.
+- **Avances de obra + aviso automático a inversores.** Específico de la preventa: la obra dura años y esto es lo que sostiene el vínculo con el comprador mientras tanto. Requiere tabla nueva y envío de mails.
+
+Más baratos y con impacto visible:
+- **Mapa de ubicación y puntos de interés** — `projects.geo` ya existe sin usar.
+- **Embed en la web del cliente (iframe) + QR + modo kiosco** para pantallas táctiles.
+- **Más filtros** vía `units.attrsJson`, que existe justamente para eso (cochera, baulera, amenities) sin migraciones por atributo.
+
+---
+
 ## Orden sugerido si hay que priorizar
 
-Los tres primeros ítems de la lista original ya están hechos (unidades, publicar/editar, RLS). Lo que sigue:
+Los tres primeros ítems de la lista original ya están hechos (unidades, publicar/editar, RLS), más billing. Lo que sigue:
 
-1. **WhatsApp real y timeline del lead** — barato de hacer y mejora directamente la herramienta de venta que ya se usa.
-2. **Links de broker con tracking** — desbloquea los reportes segregados, que es diferencial frente a mandar PDFs.
-3. **Invitar usuarios al tenant** — hoy es un solo usuario por inmobiliaria; limita a equipos.
-4. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom) es valor agregado sobre una base que ya vende.
+1. **Ficha técnica por unidad** — la brecha más grande contra Urbania, y media base ya está puesta.
+2. **Mapa de ubicación** — de lo más barato con más impacto en la página pública.
+3. **Avances de obra** — lo que hace que el comprador vuelva durante los años de obra.
+4. **WhatsApp** ya está; falta el **timeline del lead**, barato y mejora la herramienta de venta que ya se usa.
+5. **Links de broker con tracking** — desbloquea los reportes segregados.
+6. El resto (PDF con QR, edificios, terminaciones, super-admin, dominios custom, invitaciones) es valor agregado sobre una base que ya vende.
