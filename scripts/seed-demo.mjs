@@ -379,7 +379,8 @@ if (pro) {
   console.log('suscripción de demo: plan Pro activo')
 }
 
-// Número de WhatsApp para que el botón del storefront aparezca.
+// Placeholder sólo si el tenant todavía no cargó su número: el coalesce
+// evita pisar un teléfono real con uno inventado al re-correr el seed.
 await c.query(
   `update tenants set contact_whatsapp = coalesce(contact_whatsapp, '5491122334455')
    where id = $1`, [tenant.id])

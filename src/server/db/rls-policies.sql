@@ -57,6 +57,15 @@ CREATE POLICY tenants_select ON tenants FOR SELECT
       SELECT 1 FROM memberships m
       WHERE m.tenant_id = tenants.id
         AND m.user_id::text = current_setting('app.user_id', true)
+    ) OR
+    -- El storefront necesita el nombre y el WhatsApp de la desarrolladora
+    -- para mostrarlos en la página del proyecto, y corre sin sesión. Una
+    -- desarrolladora con un proyecto publicado ya es públicamente
+    -- identificable: su página es pública. Sin esta rama el botón de
+    -- WhatsApp queda invisible en todo el sitio público.
+    EXISTS (
+      SELECT 1 FROM projects p
+      WHERE p.tenant_id = tenants.id AND p.status = 'published'
     )
   );
 
