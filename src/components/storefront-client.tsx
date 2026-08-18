@@ -47,6 +47,12 @@ interface StorefrontClientProps {
   whatsappNumber?: string | null
   geo?: { lat: number; lng: number } | null
   pointsOfInterest?: { name: string; distance?: string }[]
+  /**
+   * Embedded in the client's own site or shown on a touch screen: drops the
+   * ShowRoom footer and the outbound link, which would take a visitor away
+   * from the host page (or off the kiosk entirely).
+   */
+  embed?: boolean
 }
 
 export function StorefrontClient({
@@ -58,6 +64,7 @@ export function StorefrontClient({
   whatsappNumber,
   geo,
   pointsOfInterest = [],
+  embed = false,
 }: StorefrontClientProps) {
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
@@ -207,18 +214,20 @@ export function StorefrontClient({
         )}
       </main>
 
-      <footer className="mt-16 border-t border-border">
-        <div className="container-page flex flex-col items-center justify-between gap-3 py-8 sm:flex-row">
-          <p className="text-sm text-fg-subtle">{projectName}</p>
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 text-sm text-fg-subtle transition-colors hover:text-fg"
-          >
-            <LogoMark className="h-4 w-4" />
-            Hecho con ShowRoom
-          </a>
-        </div>
-      </footer>
+      {!embed && (
+        <footer className="mt-16 border-t border-border">
+          <div className="container-page flex flex-col items-center justify-between gap-3 py-8 sm:flex-row">
+            <p className="text-sm text-fg-subtle">{projectName}</p>
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 text-sm text-fg-subtle transition-colors hover:text-fg"
+            >
+              <LogoMark className="h-4 w-4" />
+              Hecho con ShowRoom
+            </a>
+          </div>
+        </footer>
+      )}
     </div>
   )
 }

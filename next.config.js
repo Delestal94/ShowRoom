@@ -15,6 +15,36 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // El storefront público está pensado para embeberse en la web del
+        // cliente, así que no se restringe el framing.
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      {
+        // El panel sí: embeberlo permitiría clickjacking sobre acciones
+        // autenticadas (borrar un proyecto, cambiar un precio).
+        source: '/dashboard/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        ],
+      },
+      {
+        source: '/sign-in',
+        headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
+      },
+      {
+        source: '/sign-up',
+        headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

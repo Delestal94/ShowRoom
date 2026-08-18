@@ -63,8 +63,10 @@ export async function generateMetadata({
 
 export default async function StorefrontPage({
   params,
+  searchParams,
 }: {
   params: { projectSlug: string }
+  searchParams: { embed?: string }
 }) {
   const project = await findPublishedProject(params.projectSlug)
 
@@ -88,6 +90,7 @@ export default async function StorefrontPage({
       pointsOfInterest={
         (project.pointsOfInterestJson ?? []) as { name: string; distance?: string }[]
       }
+      embed={searchParams.embed === '1'}
     />
   )
 }

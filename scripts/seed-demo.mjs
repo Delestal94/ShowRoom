@@ -146,6 +146,13 @@ const PROYECTOS = [
     slug: 'torre-almagro',
     name: 'Torre Almagro',
     address: 'Av. Corrientes 4250, Almagro, CABA',
+    geo: { lat: -34.6021, lng: -58.4211 },
+    poi: [
+      { name: 'Subte línea B — Medrano', distance: '350 m' },
+      { name: 'Parque Centenario', distance: '900 m' },
+      { name: 'Hospital Italiano', distance: '1,1 km' },
+      { name: 'UTN Facultad Regional', distance: '1,4 km' },
+    ],
     unidades: generarUnidades({ pisos: 8, porPiso: 3, m2Base: 16, precioBase: 18000, precioPorM2: 1850 }),
     tours: ['glb', 'pano', 'render1'],
   },
@@ -153,6 +160,12 @@ const PROYECTOS = [
     slug: 'residencias-del-parque',
     name: 'Residencias del Parque',
     address: 'Av. del Libertador 8800, Nordelta, Tigre',
+    geo: { lat: -34.4029, lng: -58.6473 },
+    poi: [
+      { name: 'Nordelta Centro Comercial', distance: '1,2 km' },
+      { name: 'Colegio Michael Ham', distance: '2,0 km' },
+      { name: 'Acceso Panamericana', distance: '3,5 km' },
+    ],
     unidades: generarUnidades({ pisos: 6, porPiso: 3, m2Base: 28, precioBase: 42000, precioPorM2: 2400 }),
     tours: ['pano', 'render2'],
   },
@@ -201,9 +214,10 @@ for (const proy of PROYECTOS) {
   const projectId = randomUUID()
 
   await c.query(
-    `insert into projects (id, tenant_id, name, slug, address, status)
-     values ($1,$2,$3,$4,$5,'published')`,
-    [projectId, tenant.id, proy.name, proy.slug, proy.address])
+    `insert into projects (id, tenant_id, name, slug, address, status, geo, points_of_interest_json)
+     values ($1,$2,$3,$4,$5,'published',$6,$7)`,
+    [projectId, tenant.id, proy.name, proy.slug, proy.address,
+     JSON.stringify(proy.geo), JSON.stringify(proy.poi)])
 
   // Unidades
   const unitIds = []

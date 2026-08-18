@@ -8,7 +8,7 @@ import { getSiteUrl } from '@/lib/site-url'
 import { UNIT_STATUS_LABEL } from '@/modules/units/unit-constants'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { ButtonLink } from '@/components/ui/button'
-import { CopyLinkButton } from './copy-link-button'
+import { SharePanel } from './share-panel'
 import { PublishToggle, DeleteProjectButton } from './project-controls'
 
 export const metadata: Metadata = { title: 'Proyecto' }
@@ -31,6 +31,7 @@ export default async function ProjectDetailPage({
 
   const tours = await listToursByProject(tenant.tenantId, params.projectId)
   const publicUrl = new URL(`/${project.slug}`, getSiteUrl()).toString()
+  const qrUrl = new URL(`/api/projects/${project.slug}/qr`, getSiteUrl()).toString()
   const availableUnits = project.units?.filter((u) => u.status === 'available').length ?? 0
 
   return (
@@ -143,19 +144,14 @@ export default async function ProjectDetailPage({
         </section>
       </div>
 
-      <section className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-6">
-        <h3 className="font-semibold text-fg">Link público</h3>
-        <p className="mt-1 text-sm text-fg-muted">
-          Compartilo con compradores para que recorran el proyecto.
-          {project.status !== 'published' && ' Publicalo para que sea visible.'}
-        </p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <div className="min-w-0 flex-1 truncate rounded-md border border-border bg-surface px-4 py-2.5 font-mono text-sm text-fg">
-            {publicUrl}
-          </div>
-          <CopyLinkButton url={publicUrl} />
-        </div>
-      </section>
+      <div className="mt-6">
+        <SharePanel
+          publicUrl={publicUrl}
+          qrUrl={qrUrl}
+          slug={project.slug}
+          published={project.status === 'published'}
+        />
+      </div>
 
       <section className="mt-6 rounded-2xl border border-danger/25 p-6">
         <h3 className="font-semibold text-fg">Zona de riesgo</h3>
