@@ -2,56 +2,58 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/cn'
+import { Button } from '@/components/ui/button'
 
 type TourKind = '360' | 'glb-model' | 'drone-video' | 'image'
 
 interface UploadTourFormProps {
-  tenantSlug: string
   projectId: string
   unitId?: string
   onSuccess?: () => void
 }
 
-const TOUR_TYPES: { value: TourKind; label: string; accept: string }[] = [
-  { value: 'glb-model', label: '3D Model (GLB)', accept: '.glb,.gltf' },
-  { value: '360', label: '360° Panorama', accept: 'image/jpeg,image/png' },
-  { value: 'image', label: 'Photo', accept: 'image/jpeg,image/png,image/webp' },
-  { value: 'drone-video', label: 'Drone Video', accept: 'video/mp4,video/webm' },
+const TOUR_TYPES: { value: TourKind; label: string; accept: string; icon: string }[] = [
+  { value: 'glb-model', label: 'Modelo 3D', accept: '.glb,.gltf', icon: '🏢' },
+  { value: '360', label: 'Panorámica 360°', accept: 'image/jpeg,image/png', icon: '🔄' },
+  { value: 'image', label: 'Foto', accept: 'image/jpeg,image/png,image/webp', icon: '📷' },
+  { value: 'drone-video', label: 'Video drone', accept: 'video/mp4,video/webm', icon: '🚁' },
 ]
 
-export function UploadTourForm({
-  tenantSlug,
-  projectId,
-  unitId,
-  onSuccess,
-}: UploadTourFormProps) {
+const MAX_MB: Record<TourKind, number> = {
+  'glb-model': 50,
+  '360': 100,
+  image: 100,
+  'drone-video': 500,
+}
+
+export function UploadTourForm({ projectId, unitId, onSuccess }: UploadTourFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [kind, setKind] = useState<TourKind>('glb-model')
   const [file, setFile] = useState<File | null>(null)
-  const [error, setError] = useState<string>('')
+  const [error, setError] = useState('')
   const [progress, setProgress] = useState(0)
 
   const selectedType = TOUR_TYPES.find((t) => t.value === kind)!
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      // Basic validation
-      const maxSize = kind === 'glb-model' ? 50 * 1024 * 1024 : 100 * 1024 * 1024 // 50MB for GLB, 100MB for others
-      if (selectedFile.size > maxSize) {
-        setError(`File too large (max ${maxSize / 1024 / 1024}MB)`)
-        return
-      }
-      setError('')
-      setFile(selectedFile)
+    const selected = e.target.files?.[0]
+    if (!selected) return
+
+    const maxSize = MAX_MB[kind] * 1024 * 1024
+    if (selected.size > maxSize) {
+      setError(`El archivo pesa demasiado (máx ${MAX_MB[kind]}MB)`)
+      return
     }
+    setError('')
+    setFile(selected)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file) {
-      setError('Please select a file')
+      setError('Elegí un archivo primero')
       return
     }
 
@@ -60,140 +62,114 @@ export function UploadTourForm({
     setProgress(0)
 
     try {
-      // Step 1: Get presigned URL from our API
       const presignRes = await fetch('/api/uploads/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantSlug,
-          projectId,
-          tourKind: kind,
-          fileName: file.name,
-          contentType: file.type,
-        }),
+        body: JSON.stringify({ projectId, tourKind: kind, fileName: file.name }),
       })
 
       if (!presignRes.ok) {
-        setError('Failed to prepare upload')
+        const body = await presignRes.json().catch(() => ({}))
+        setError(body.error ?? 'No se pudo preparar la subida')
         setLoading(false)
         return
       }
 
       const { presignedUrl, storageKey, cdnUrl } = await presignRes.json()
 
-      // Step 2: Upload directly to R2 using presigned URL
-      const uploadXhr = new XMLHttpRequest()
+      const xhr = new XMLHttpRequest()
 
-      uploadXhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          setProgress(Math.round((e.loaded / e.total) * 100))
-        }
+      xhr.upload.addEventListener('progress', (ev) => {
+        if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100))
       })
 
-      uploadXhr.addEventListener('load', async () => {
-        if (uploadXhr.status === 200) {
-          // Step 3: Create tour record in our DB with CDN URL
-          try {
-            const tourRes = await fetch(
-              `/api/dashboard/${tenantSlug}/projects/${projectId}/tours`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  kind,
-                  unitId,
-                  storageKey,
-                  cdnUrl,
-                }),
-              }
-            )
+      xhr.addEventListener('load', async () => {
+        if (xhr.status !== 200) {
+          setError(`La subida falló (HTTP ${xhr.status})`)
+          setLoading(false)
+          return
+        }
 
-            if (tourRes.ok) {
-              setFile(null)
-              setProgress(0)
-              if (onSuccess) onSuccess()
-              router.refresh()
-            } else {
-              setError('Failed to save tour metadata')
-            }
-          } catch (err) {
-            setError('Failed to save tour')
+        try {
+          const tourRes = await fetch(`/api/dashboard/projects/${projectId}/tours`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind, unitId, storageKey, cdnUrl }),
+          })
+
+          if (tourRes.ok) {
+            setFile(null)
+            setProgress(0)
+            onSuccess?.()
+            router.refresh()
+          } else {
+            setError('El archivo subió, pero no se pudo guardar el registro')
           }
-        } else {
-          setError(`Upload failed (HTTP ${uploadXhr.status})`)
+        } catch {
+          setError('El archivo subió, pero no se pudo guardar el registro')
+        } finally {
+          setLoading(false)
         }
+      })
+
+      xhr.addEventListener('error', () => {
+        setError('La subida falló. Probá de nuevo.')
+        setLoading(false)
+      })
+      xhr.addEventListener('abort', () => {
+        setError('Subida cancelada')
         setLoading(false)
       })
 
-      uploadXhr.addEventListener('error', () => {
-        setError('Upload failed. Please try again.')
-        setLoading(false)
-      })
-
-      uploadXhr.addEventListener('abort', () => {
-        setError('Upload cancelled')
-        setLoading(false)
-      })
-
-      uploadXhr.open('PUT', presignedUrl)
-      uploadXhr.setRequestHeader('Content-Type', file.type)
-      uploadXhr.send(file)
+      xhr.open('PUT', presignedUrl)
+      xhr.setRequestHeader('Content-Type', file.type)
+      xhr.send(file)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      setError(err instanceof Error ? err.message : 'La subida falló')
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Tour</h3>
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-surface/50 p-6">
+      <h3 className="font-semibold text-fg">Subir tour</h3>
 
-      {/* Tour Type Selector */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Tour Type
-        </label>
+      <div className="mt-5">
+        <p className="mb-2 text-sm font-medium text-fg">Tipo</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {TOUR_TYPES.map((type) => (
             <label
               key={type.value}
-              className={`relative flex items-center p-3 border-2 rounded-lg cursor-pointer transition ${
+              className={cn(
+                'relative flex cursor-pointer flex-col items-center rounded-md border p-3 text-center transition-colors',
                 kind === type.value
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-border-strong'
+              )}
             >
               <input
                 type="radio"
                 name="tour-type"
                 value={type.value}
                 checked={kind === type.value}
-                onChange={(e) => {
-                  setKind(e.target.value as TourKind)
+                onChange={(ev) => {
+                  setKind(ev.target.value as TourKind)
                   setFile(null)
                   setProgress(0)
+                  setError('')
                 }}
                 className="sr-only"
               />
-              <span className="text-center w-full">
-                <span className="block text-lg mb-1">
-                  {getTourIcon(type.value)}
-                </span>
-                <span className="text-xs font-medium text-gray-900">
-                  {type.label.split(' ')[0]}
-                </span>
-              </span>
+              <span className="text-lg">{type.icon}</span>
+              <span className="mt-1 text-xs font-medium text-fg">{type.label}</span>
             </label>
           ))}
         </div>
       </div>
 
-      {/* File Input */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select File
-        </label>
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+      <div className="mt-5">
+        <p className="mb-2 text-sm font-medium text-fg">Archivo</p>
+        <div className="rounded-md border border-dashed border-border p-6 text-center transition-colors hover:border-border-strong">
           <input
             type="file"
             accept={selectedType.accept}
@@ -202,66 +178,36 @@ export function UploadTourForm({
             className="sr-only"
             id="file-input"
           />
-          <label
-            htmlFor="file-input"
-            className="block cursor-pointer"
-          >
-            <div className="text-2xl mb-2">📁</div>
-            <p className="text-sm font-medium text-gray-900">
-              {file ? file.name : 'Click to upload or drag file'}
+          <label htmlFor="file-input" className="block cursor-pointer">
+            <p className="text-sm font-medium text-fg">
+              {file ? file.name : 'Hacé clic o arrastrá el archivo acá'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Max size: {kind === 'glb-model' ? '50' : '100'}MB
-            </p>
+            <p className="mt-1 text-xs text-fg-subtle">Máx {MAX_MB[kind]}MB</p>
           </label>
         </div>
       </div>
 
-      {/* Progress Bar */}
       {progress > 0 && progress < 100 && (
-        <div className="mb-6">
-          <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="mt-5">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-all duration-300"
               style={{ width: `${progress}%` }}
-            ></div>
+            />
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Uploading... {progress}%
-          </p>
+          <p className="mt-2 text-center text-xs text-fg-subtle">Subiendo… {progress}%</p>
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
-        <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
+        <p className="mt-5 rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {error}
+        </p>
       )}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={!file || loading}
-        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium transition disabled:cursor-not-allowed"
-      >
-        {loading ? `Uploading... ${progress}%` : 'Upload Tour'}
-      </button>
+      <Button type="submit" disabled={!file || loading} className="mt-6 w-full">
+        {loading ? `Subiendo… ${progress}%` : 'Subir tour'}
+      </Button>
     </form>
   )
-}
-
-function getTourIcon(kind: string) {
-  switch (kind) {
-    case '360':
-      return '🔄'
-    case 'glb-model':
-      return '🏢'
-    case 'drone-video':
-      return '🚁'
-    case 'image':
-      return '📷'
-    default:
-      return '📸'
-  }
 }

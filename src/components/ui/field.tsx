@@ -8,7 +8,7 @@ const inputBase =
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string
-  hint?: string
+  hint?: React.ReactNode
   error?: string
 }
 

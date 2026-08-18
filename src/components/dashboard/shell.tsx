@@ -34,17 +34,17 @@ function NavIcon({ path }: { path: string }) {
 
 export function DashboardShell({
   email,
-  tenantSlug,
+  tenantName,
   children,
 }: {
   email: string
-  tenantSlug: string | null
+  tenantName: string
   children: React.ReactNode
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
-  const base = tenantSlug ? `/dashboard/${tenantSlug}` : '/dashboard'
+  const base = '/dashboard'
   const nav = [
     { href: base, label: 'Resumen', icon: ICONS.home },
     { href: `${base}/projects`, label: 'Proyectos', icon: ICONS.projects },
@@ -62,13 +62,17 @@ export function DashboardShell({
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex h-16 items-center border-b border-border px-5">
+        <div className="flex h-16 flex-col justify-center border-b border-border px-5">
           <Logo href={base} />
+          <p className="mt-0.5 truncate pl-9 text-xs text-fg-subtle">{tenantName}</p>
         </div>
 
         <nav className="space-y-1 p-3">
           {nav.map((item) => {
-            const active = pathname === item.href
+            const active =
+              item.href === base
+                ? pathname === base
+                : pathname === item.href || pathname?.startsWith(`${item.href}/`)
             return (
               <Link
                 key={item.href}

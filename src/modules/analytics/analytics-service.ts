@@ -33,23 +33,39 @@ export async function getEventStats(
   days: number = 7
 ) {
   const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const where = and(
+    eq(analyticsEvents.tenantId, tenantId),
+    eq(analyticsEvents.projectId, projectId),
+    gte(analyticsEvents.createdAt, cutoffDate)
+  )
 
-  const result = await db
+  // Totals and the per-type breakdown need different GROUP BY shapes, so
+  // they're two queries rather than one jsonb_object_agg over a column that
+  // doesn't exist without its own GROUP BY (that was the original bug here).
+  const [totals] = await db
     .select({
-      totalEvents: sql<number>`COUNT(*) as total_events`,
-      totalSessions: sql<number>`COUNT(DISTINCT session_id) as total_sessions`,
-      eventTypes: sql<Record<string, number>>`jsonb_object_agg(event_type, count)`,
+      totalEvents: sql<number>`COUNT(*)`,
+      totalSessions: sql<number>`COUNT(DISTINCT ${analyticsEvents.sessionId})`,
     })
     .from(analyticsEvents)
-    .where(
-      and(
-        eq(analyticsEvents.tenantId, tenantId),
-        eq(analyticsEvents.projectId, projectId),
-        gte(analyticsEvents.createdAt, cutoffDate)
-      )
-    )
+    .where(where)
 
-  return result[0] || { totalEvents: 0, totalSessions: 0, eventTypes: {} }
+  const byType = await db
+    .select({
+      eventType: analyticsEvents.eventType,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(analyticsEvents)
+    .where(where)
+    .groupBy(analyticsEvents.eventType)
+
+  const eventTypes = Object.fromEntries(byType.map((r) => [r.eventType, Number(r.count)]))
+
+  return {
+    totalEvents: Number(totals?.totalEvents ?? 0),
+    totalSessions: Number(totals?.totalSessions ?? 0),
+    eventTypes,
+  }
 }
 
 export async function getUnitPopularity(
@@ -59,10 +75,15 @@ export async function getUnitPopularity(
 ) {
   const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
+  // payloadJson maps to the real column `payload_json`, not `payload` —
+  // the raw ->>'unit_id' reference here used to point at a column that
+  // doesn't exist and failed on every call.
+  const unitIdExpr = sql<string>`${analyticsEvents.payloadJson}->>'unit_id'`
+
   const result = await db
     .select({
-      unitId: sql<string>`payload->>'unit_id' as unit_id`,
-      views: sql<number>`COUNT(*) as views`,
+      unitId: unitIdExpr,
+      views: sql<number>`COUNT(*)`,
     })
     .from(analyticsEvents)
     .where(
@@ -73,7 +94,7 @@ export async function getUnitPopularity(
         gte(analyticsEvents.createdAt, cutoffDate)
       )
     )
-    .groupBy(sql`payload->>'unit_id'`)
+    .groupBy(unitIdExpr)
     .orderBy(sql`COUNT(*) DESC`)
 
   return result

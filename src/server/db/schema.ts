@@ -63,7 +63,8 @@ export const users = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     email: text('email').notNull().unique(),
-    clerkUserId: text('clerk_user_id').notNull().unique(),
+    /** Supabase auth.users.id for this account. */
+    authUserId: text('auth_user_id').notNull().unique(),
     globalRole: varchar('global_role', { length: 50 }), // super_admin or null
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -115,7 +116,10 @@ export const projects = pgTable(
   },
   (table) => ({
     tenantIdIdx: index('projects_tenant_id_idx').on(table.tenantId),
-    slugIdx: index('projects_slug_idx').on(table.slug),
+    // Globally unique: the public storefront resolves /[projectSlug] by
+    // slug alone, with no tenant in the URL — two tenants sharing a slug
+    // would make one project's page render the other's data.
+    slugIdx: uniqueIndex('projects_slug_idx').on(table.slug),
   })
 )
 
@@ -318,6 +322,21 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   leads: many(leads),
   tours: many(tours),
   units: many(units),
+}))
+
+export const usersRelations = relations(users, ({ many }) => ({
+  memberships: many(memberships),
+}))
+
+export const membershipsRelations = relations(memberships, ({ one }) => ({
+  user: one(users, {
+    fields: [memberships.userId],
+    references: [users.id],
+  }),
+  tenant: one(tenants, {
+    fields: [memberships.tenantId],
+    references: [tenants.id],
+  }),
 }))
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({

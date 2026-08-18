@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { cn } from '@/lib/cn'
 
 interface Lead {
   id: string
   name: string
   email: string
-  phone?: string
+  phone?: string | null
   status: 'new' | 'contacted' | 'qualified' | 'won' | 'lost'
   createdAt: Date
   source: string
@@ -18,18 +19,24 @@ interface LeadsKanbanProps {
 }
 
 const STATUSES = [
-  { id: 'new', label: 'New', color: 'bg-gray-100' },
-  { id: 'contacted', label: 'Contacted', color: 'bg-blue-100' },
-  { id: 'qualified', label: 'Qualified', color: 'bg-yellow-100' },
-  { id: 'won', label: 'Won', color: 'bg-green-100' },
-  { id: 'lost', label: 'Lost', color: 'bg-red-100' },
-]
+  { id: 'new', label: 'Nuevo', dot: 'bg-fg-subtle' },
+  { id: 'contacted', label: 'Contactado', dot: 'bg-primary' },
+  { id: 'qualified', label: 'Calificado', dot: 'bg-accent' },
+  { id: 'won', label: 'Ganado', dot: 'bg-success' },
+  { id: 'lost', label: 'Perdido', dot: 'bg-danger' },
+] as const
 
-function LeadCard({ lead, onStatusChange }: { lead: Lead; onStatusChange?: (status: string) => void }) {
+function LeadCard({
+  lead,
+  onStatusChange,
+}: {
+  lead: Lead
+  onStatusChange?: (status: string) => void
+}) {
   const [loading, setLoading] = useState(false)
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!onStatusChange) return
+    if (!onStatusChange || newStatus === lead.status) return
     setLoading(true)
     try {
       await onStatusChange(newStatus)
@@ -39,36 +46,35 @@ function LeadCard({ lead, onStatusChange }: { lead: Lead; onStatusChange?: (stat
   }
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition cursor-grab active:cursor-grabbing">
-      <div className="mb-3">
-        <h3 className="font-semibold text-gray-900 truncate">{lead.name}</h3>
-        <p className="text-xs text-gray-600 truncate">{lead.email}</p>
-        {lead.phone && (
-          <p className="text-xs text-gray-500">{lead.phone}</p>
-        )}
-      </div>
+    <div
+      className={cn(
+        'rounded-md border border-border bg-surface p-4 transition-opacity',
+        loading && 'opacity-50'
+      )}
+    >
+      <h3 className="truncate font-medium text-fg">{lead.name}</h3>
+      <p className="truncate text-xs text-fg-muted">{lead.email}</p>
+      {lead.phone && <p className="text-xs text-fg-subtle">{lead.phone}</p>}
 
-      <div className="flex items-center justify-between text-xs mb-3">
-        <span className="px-2 py-1 bg-gray-100 rounded text-gray-700">
-          {lead.source}
-        </span>
-        <span className="text-gray-400">
-          {new Date(lead.createdAt).toLocaleDateString()}
-        </span>
+      <div className="mt-3 flex items-center justify-between text-xs">
+        <span className="rounded-full bg-surface-2 px-2 py-1 text-fg-muted">{lead.source}</span>
+        <span className="text-fg-subtle">{new Date(lead.createdAt).toLocaleDateString('es-AR')}</span>
       </div>
 
       {onStatusChange && (
-        <div className="flex gap-1 flex-wrap">
+        <div className="mt-3 flex flex-wrap gap-1">
           {STATUSES.map((status) => (
             <button
               key={status.id}
+              type="button"
               onClick={() => handleStatusChange(status.id)}
               disabled={loading}
-              className={`text-xs px-2 py-1 rounded transition ${
+              className={cn(
+                'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors disabled:cursor-wait',
                 lead.status === status.id
-                  ? `${status.color} font-semibold`
-                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              } disabled:opacity-50`}
+                  ? 'bg-primary/15 text-primary'
+                  : 'bg-surface-2 text-fg-subtle hover:bg-surface-2/70 hover:text-fg-muted'
+              )}
             >
               {status.label}
             </button>
@@ -82,40 +88,33 @@ function LeadCard({ lead, onStatusChange }: { lead: Lead; onStatusChange?: (stat
 export function LeadsKanban({ leads, onStatusChange }: LeadsKanbanProps) {
   const columns = STATUSES.map((status) => ({
     ...status,
-    leads: leads.filter((l) => l.status === status.id as any),
+    leads: leads.filter((l) => l.status === status.id),
   }))
 
   return (
-    <div className="grid grid-cols-5 gap-4 overflow-x-auto pb-4">
+    <div className="grid grid-flow-col auto-cols-[16rem] gap-4 overflow-x-auto pb-2">
       {columns.map((column) => (
-        <div key={column.id} className="min-w-sm flex-shrink-0">
-          <div className="bg-gray-50 rounded-lg p-4 min-h-96">
-            <div className="mb-4">
-              <h3 className="font-semibold text-gray-900">{column.label}</h3>
-              <span className="text-xs text-gray-600">
-                {column.leads.length} lead{column.leads.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+        <div key={column.id} className="rounded-2xl border border-border bg-surface/30 p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <span className={cn('h-2 w-2 rounded-full', column.dot)} />
+            <h3 className="font-medium text-fg">{column.label}</h3>
+            <span className="ml-auto text-xs text-fg-subtle">{column.leads.length}</span>
+          </div>
 
-            <div className="space-y-3">
-              {column.leads.map((lead) => (
-                <LeadCard
-                  key={lead.id}
-                  lead={lead}
-                  onStatusChange={
-                    onStatusChange
-                      ? (status) => onStatusChange(lead.id, status)
-                      : undefined
-                  }
-                />
-              ))}
+          <div className="space-y-2.5">
+            {column.leads.map((lead) => (
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                onStatusChange={
+                  onStatusChange ? (status) => onStatusChange(lead.id, status) : undefined
+                }
+              />
+            ))}
 
-              {column.leads.length === 0 && (
-                <div className="text-center text-gray-400 text-sm py-8">
-                  No leads
-                </div>
-              )}
-            </div>
+            {column.leads.length === 0 && (
+              <div className="py-8 text-center text-sm text-fg-subtle">Sin leads</div>
+            )}
           </div>
         </div>
       ))}

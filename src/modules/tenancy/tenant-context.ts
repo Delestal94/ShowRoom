@@ -32,23 +32,19 @@ export async function getTenantFromSlug(slug: string): Promise<{ id: string } | 
   return null
 }
 
-export async function getCurrentTenant() {
+/**
+ * Resolves the tenant bound to a custom-domain/subdomain request, via the
+ * x-tenant-slug header set by middleware. This is for the future public
+ * storefront-on-subdomain flow.
+ *
+ * For anything under /dashboard, use requireCurrentTenant() from
+ * ./current-tenant instead — the admin panel resolves the tenant from the
+ * signed-in Supabase user, not from the host header.
+ */
+export async function getTenantFromRequestHost() {
   const headersList = await headers()
   const tenantSlug = headersList.get('x-tenant-slug')
 
-  if (!tenantSlug) {
-    throw new Error('No tenant slug found in request')
-  }
-
-  const tenant = await getTenantFromSlug(tenantSlug)
-  if (!tenant) {
-    throw new Error(`Tenant not found: ${tenantSlug}`)
-  }
-
-  return tenant
-}
-
-export async function getCurrentTenantId(): Promise<string> {
-  const tenant = await getCurrentTenant()
-  return tenant.id
+  if (!tenantSlug) return null
+  return getTenantFromSlug(tenantSlug)
 }
