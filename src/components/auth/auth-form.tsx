@@ -97,8 +97,10 @@ export function SignInForm({
 
 export function SignUpForm({
   action,
+  redirectTo = '/dashboard',
 }: {
   action: (prev: AuthState, formData: FormData) => Promise<AuthState>
+  redirectTo?: string
 }) {
   const [state, formAction] = useFormState(action, initialState)
 
@@ -128,6 +130,8 @@ export function SignUpForm({
       </header>
 
       {state.error && <Alert tone="error">{state.error}</Alert>}
+
+      <input type="hidden" name="redirectTo" value={redirectTo} />
 
       <Field
         label="Email"

@@ -108,6 +108,36 @@ export const memberships = pgTable(
   })
 )
 
+/**
+ * Invitaciones al tenant, basadas en link.
+ *
+ * Sin proveedor de mail configurado, el link se comparte por WhatsApp. El
+ * token es el secreto: conocerlo autoriza a unirse, igual que un link de
+ * restablecer contraseña.
+ */
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    token: text('token').notNull().unique(),
+    role: varchar('role', { length: 50 }).notNull().default('editor'),
+    /** Para recordar a quién se le mandó ("Juan, ventas"). */
+    label: text('label'),
+    expiresAt: timestamp('expires_at').notNull(),
+    acceptedAt: timestamp('accepted_at'),
+    acceptedBy: uuid('accepted_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdIdx: index('invitations_tenant_id_idx').on(table.tenantId),
+  })
+)
+
 // ============ Projects & Units ============
 
 export const projects = pgTable(

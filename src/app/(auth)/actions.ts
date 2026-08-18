@@ -60,6 +60,12 @@ export async function signUpAction(
 ): Promise<AuthState> {
   const { email, password } = readCredentials(formData)
   const confirm = String(formData.get('confirmPassword') ?? '')
+  const rawRedirect = String(formData.get('redirectTo') ?? '')
+  // Sólo rutas del mismo sitio, para que ?redirectTo= no derive a otro dominio.
+  const redirectTo =
+    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : '/dashboard'
 
   if (!email || !password) {
     return { error: 'Completá email y contraseña.' }
@@ -77,7 +83,11 @@ export async function signUpAction(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
+    options: {
+      // El destino viaja hasta el callback: si alguien se registra desde una
+      // invitación, tiene que volver ahí después de confirmar el mail.
+      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+    },
   })
 
   if (error) {
@@ -92,7 +102,7 @@ export async function signUpAction(
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect(redirectTo)
 }
 
 export async function signOutAction() {

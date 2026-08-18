@@ -97,6 +97,65 @@ export async function registerClick(linkId: string) {
     .where(eq(brokerLinks.id, linkId))
 }
 
+/**
+ * Reporte consolidado de todos los proyectos.
+ *
+ * Un mismo broker suele trabajar varios proyectos de la misma
+ * desarrolladora, así que se agrupa por nombre: lo que interesa es cuánto
+ * trae esa inmobiliaria en total, no link por link.
+ */
+export async function getTenantBrokerReport(tenantId: string) {
+  return withTenant(tenantId, async (tx) => {
+    const links = await tx.query.brokerLinks.findMany({
+      where: eq(brokerLinks.tenantId, tenantId),
+    })
+    if (links.length === 0) return []
+
+    const leadRows = await tx
+      .select({
+        brokerLinkId: leads.brokerLinkId,
+        total: count(),
+        won: sql<number>`count(*) filter (where ${leads.status} = 'won')`,
+      })
+      .from(leads)
+      .where(eq(leads.tenantId, tenantId))
+      .groupBy(leads.brokerLinkId)
+
+    const leadMap = new Map(
+      leadRows.map((r) => [r.brokerLinkId, { total: Number(r.total), won: Number(r.won) }])
+    )
+
+    const byName = new Map<
+      string,
+      { brokerName: string; projects: number; clicks: number; leads: number; won: number }
+    >()
+
+    for (const link of links) {
+      const key = link.brokerName ?? 'Sin nombre'
+      const stats = leadMap.get(link.id) ?? { total: 0, won: 0 }
+      const current = byName.get(key) ?? {
+        brokerName: key,
+        projects: 0,
+        clicks: 0,
+        leads: 0,
+        won: 0,
+      }
+
+      byName.set(key, {
+        brokerName: key,
+        projects: current.projects + 1,
+        clicks: current.clicks + link.clicks,
+        leads: current.leads + stats.total,
+        won: current.won + stats.won,
+      })
+    }
+
+    return Array.from(byName.values()).sort(
+      (a, b) => b.leads - a.leads || b.clicks - a.clicks
+    )
+  })
+}
+
 export interface BrokerReportRow {
   linkId: string
   brokerName: string | null

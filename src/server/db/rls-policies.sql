@@ -261,3 +261,27 @@ CREATE POLICY analytics_events_select ON analytics_events FOR SELECT
 -- ============ users / plans ============
 -- No son tenant-scoped. `users` se consulta por auth_user_id (que viene de
 -- la sesión de Supabase) y `plans` es un catálogo público de precios.
+
+-- ============ Invitations ============
+-- Quien acepta una invitación todavía no pertenece al tenant, así que
+-- necesita leer la fila por su token.
+--
+-- Ojo con el patrón: `token IS NOT NULL` parece equivalente pero es SIEMPRE
+-- verdadero — dejaría a cualquier tenant listar las invitaciones de todos,
+-- tokens incluidos, y usarlas para meterse en otro tenant. La app declara el
+-- token que está consultando en app.invite_token y la política expone
+-- únicamente esa fila.
+
+CREATE POLICY invitations_select ON invitations FOR SELECT
+  USING (
+    tenant_id::text = current_setting('app.tenant_id', true) OR
+    token = current_setting('app.invite_token', true)
+  );
+
+CREATE POLICY invitations_write ON invitations FOR ALL
+  USING (tenant_id::text = current_setting('app.tenant_id', true))
+  WITH CHECK (tenant_id::text = current_setting('app.tenant_id', true));
+
+CREATE POLICY invitations_accept ON invitations FOR UPDATE
+  USING (token = current_setting('app.invite_token', true))
+  WITH CHECK (token = current_setting('app.invite_token', true));

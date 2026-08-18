@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { listProjects } from '@/modules/projects/project-service'
 import { getEventStats, getUnitPopularity, getHeatmapData } from '@/modules/analytics/analytics-service'
+import { getTenantBrokerReport } from '@/modules/brokers/broker-service'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { ProjectSelect } from './project-select'
 
@@ -13,7 +14,10 @@ export default async function AnalyticsPage({
   searchParams: { projectId?: string }
 }) {
   const tenant = await requireCurrentTenant()
-  const projects = await listProjects(tenant.tenantId)
+  const [projects, brokerReport] = await Promise.all([
+    listProjects(tenant.tenantId),
+    getTenantBrokerReport(tenant.tenantId),
+  ])
   const selectedProjectId = searchParams.projectId || projects[0]?.id
 
   let stats: Awaited<ReturnType<typeof getEventStats>> | null = null
@@ -121,6 +125,46 @@ export default async function AnalyticsPage({
             )}
           </section>
         </>
+      )}
+
+      {brokerReport.length > 0 && (
+        <section className="mt-6 rounded-2xl border border-border bg-surface/50 p-6">
+          <h2 className="font-semibold text-fg">Brokers</h2>
+          <p className="mt-1 text-sm text-fg-muted">
+            Consolidado de todos tus proyectos, agrupado por broker.
+          </p>
+
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs uppercase tracking-wider text-fg-subtle">
+                  <th className="p-3 font-medium">Broker</th>
+                  <th className="p-3 font-medium">Proyectos</th>
+                  <th className="p-3 font-medium">Aperturas</th>
+                  <th className="p-3 font-medium">Consultas</th>
+                  <th className="p-3 font-medium">Cerradas</th>
+                  <th className="p-3 font-medium">Conversión</th>
+                </tr>
+              </thead>
+              <tbody>
+                {brokerReport.map((row) => (
+                  <tr key={row.brokerName} className="border-b border-border last:border-0">
+                    <td className="p-3 font-medium text-fg">{row.brokerName}</td>
+                    <td className="p-3 text-fg-muted">{row.projects}</td>
+                    <td className="p-3 text-fg-muted">{row.clicks}</td>
+                    <td className="p-3 font-medium text-fg">{row.leads}</td>
+                    <td className="p-3 text-fg-muted">{row.won}</td>
+                    <td className="p-3 text-fg-muted">
+                      {row.leads > 0
+                        ? `${Math.round((row.won / row.leads) * 100)}%`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   )

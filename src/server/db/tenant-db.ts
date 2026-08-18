@@ -75,6 +75,30 @@ export async function withUser<T>(
 }
 
 /**
+ * Reading an invitation by its token, from someone who is not yet a member
+ * of that tenant.
+ *
+ * The token being looked up is declared to Postgres, and the policy only
+ * exposes the row whose token matches. A policy like `token IS NOT NULL`
+ * would look similar but is always true — it would let any signed-in tenant
+ * list everyone else's invitations, tokens included, and use them to join
+ * another tenant.
+ */
+export async function withInviteToken<T>(
+  token: string,
+  fn: (tx: TenantTx) => Promise<T>,
+  tenantId?: string
+): Promise<T> {
+  return appDb.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.invite_token', ${token}, true)`)
+    if (tenantId) {
+      await tx.execute(sql`select set_config('app.tenant_id', ${tenantId}, true)`)
+    }
+    return fn(tx)
+  })
+}
+
+/**
  * Public storefront and anonymous ingest (leads, analytics). Runs with no
  * tenant context, so only the policies that explicitly allow anonymous
  * access apply — published projects and their units/tours.
