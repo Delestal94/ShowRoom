@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -13,22 +12,20 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <head>
-          {/* Pannellum CSS for 360 viewer */}
-          <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css"
-          />
-          {/* Pannellum JS for 360 viewer */}
-          <script
-            async
-            src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"
-          ></script>
-        </head>
-        <body>{children}</body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <head>
+        {/* Pannellum CSS for 360 viewer */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css"
+        />
+        {/* Pannellum JS for 360 viewer */}
+        <script
+          async
+          src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"
+        ></script>
+      </head>
+      <body>{children}</body>
+    </html>
   )
 }
