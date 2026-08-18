@@ -17,6 +17,16 @@ export default async function EditProjectPage({
   const project = await getProject(tenant.tenantId, params.projectId)
   if (!project) notFound()
 
+  const geo = project.geo as { lat: number; lng: number } | null
+  const poi = (project.pointsOfInterestJson ?? []) as {
+    name: string
+    distance?: string
+  }[]
+
+  const poiText = poi
+    .map((p) => (p.distance ? `${p.name} — ${p.distance}` : p.name))
+    .join('\n')
+
   return (
     <div className="mx-auto max-w-lg">
       <Link
@@ -38,6 +48,8 @@ export default async function EditProjectPage({
             name: project.name,
             slug: project.slug,
             address: project.address ?? '',
+            coords: geo ? `${geo.lat}, ${geo.lng}` : '',
+            pointsOfInterest: poiText,
           }}
         />
       </div>

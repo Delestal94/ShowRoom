@@ -20,7 +20,13 @@ export function EditProjectForm({
   defaults,
 }: {
   action: (prev: CreateProjectState, formData: FormData) => Promise<CreateProjectState>
-  defaults: { name: string; slug: string; address: string }
+  defaults: {
+    name: string
+    slug: string
+    address: string
+    coords: string
+    pointsOfInterest: string
+  }
 }) {
   const [state, formAction] = useFormState(action, {})
   const [slug, setSlug] = useState(defaults.slug)
@@ -44,6 +50,36 @@ export function EditProjectForm({
       />
 
       <Field label="Dirección" name="address" defaultValue={defaults.address} />
+
+      <Field
+        label="Coordenadas"
+        name="coords"
+        defaultValue={defaults.coords}
+        placeholder="-34.6037, -58.3816"
+        hint={<span className="text-xs text-fg-subtle">Opcional</span>}
+      />
+      <p className="-mt-3 text-xs text-fg-subtle">
+        Buscá la dirección en Google Maps, hacé clic derecho sobre el punto y copiá las
+        coordenadas. Sin esto, la página pública no muestra el mapa.
+      </p>
+
+      <div>
+        <label htmlFor="poi" className="mb-1.5 block text-sm font-medium text-fg">
+          Puntos de interés cercanos{' '}
+          <span className="font-normal text-fg-subtle">(opcional)</span>
+        </label>
+        <textarea
+          id="poi"
+          name="pointsOfInterest"
+          rows={5}
+          defaultValue={defaults.pointsOfInterest}
+          placeholder={'Subte línea B — 300 m\nParque Centenario — 600 m\nHospital Italiano — 1,2 km'}
+          className="w-full rounded-md border border-border bg-surface-2/60 p-3 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
+        />
+        <p className="mt-2 text-xs text-fg-subtle">
+          Uno por línea. Separá el nombre de la distancia con un guión.
+        </p>
+      </div>
 
       <SubmitButton />
     </form>

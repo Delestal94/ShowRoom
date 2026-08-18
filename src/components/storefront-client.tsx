@@ -5,6 +5,7 @@ import { TourViewer } from './tour-viewer'
 import { UnitFilters } from './unit-filters'
 import { UnitGrid } from './unit-grid'
 import { ContactForm } from './contact-form'
+import { ProjectMap } from './project-map'
 import { LogoMark } from './ui/logo'
 import { trackEvent } from '@/lib/analytics'
 
@@ -44,6 +45,8 @@ interface StorefrontClientProps {
   initialUnits: Unit[]
   tours: Tour[]
   whatsappNumber?: string | null
+  geo?: { lat: number; lng: number } | null
+  pointsOfInterest?: { name: string; distance?: string }[]
 }
 
 export function StorefrontClient({
@@ -53,6 +56,8 @@ export function StorefrontClient({
   initialUnits,
   tours,
   whatsappNumber,
+  geo,
+  pointsOfInterest = [],
 }: StorefrontClientProps) {
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
@@ -118,12 +123,22 @@ export function StorefrontClient({
               <p className="truncate text-xs text-fg-muted">{projectAddress}</p>
             )}
           </div>
-          <a
-            href="#unidades"
-            className="hidden shrink-0 rounded-full border border-border px-4 py-2 text-sm text-fg-muted transition-colors hover:border-border-strong hover:text-fg sm:inline-flex"
-          >
-            Ver unidades
-          </a>
+          <nav className="hidden shrink-0 items-center gap-1 sm:flex">
+            <a
+              href="#unidades"
+              className="rounded-full px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              Unidades
+            </a>
+            {geo && (
+              <a
+                href="#ubicacion"
+                className="rounded-full px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              >
+                Ubicación
+              </a>
+            )}
+          </nav>
         </div>
       </header>
 
@@ -175,6 +190,21 @@ export function StorefrontClient({
             <UnitGrid units={units} loading={loading} projectSlug={projectSlug} />
           </div>
         </section>
+
+        {geo && (
+          <section id="ubicacion" className="mt-16 scroll-mt-20">
+            <h2 className="text-title font-semibold text-fg">Ubicación</h2>
+            <div className="mt-6">
+              <ProjectMap
+                lat={geo.lat}
+                lng={geo.lng}
+                projectName={projectName}
+                address={projectAddress}
+                pointsOfInterest={pointsOfInterest}
+              />
+            </div>
+          </section>
+        )}
       </main>
 
       <footer className="mt-16 border-t border-border">

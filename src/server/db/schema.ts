@@ -120,7 +120,10 @@ export const projects = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     address: text('address'),
-    geo: jsonb('geo'), // { lat, lng }
+    /** { lat, lng } para el pin del mapa en la página pública. */
+    geo: jsonb('geo'),
+    /** [{ name, distance }] — colegios, subte, parques cerca del proyecto. */
+    pointsOfInterestJson: jsonb('points_of_interest_json').default([]),
     status: varchar('status', { length: 50 }).notNull().default('draft'), // draft, published
     amenitiesJson: jsonb('amenities_json').default([]),
     createdAt: timestamp('created_at').defaultNow().notNull(),

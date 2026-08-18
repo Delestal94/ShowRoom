@@ -51,12 +51,22 @@ export async function updateProject(
     slug: string
     address: string
     status: string
+    geo: { lat: number; lng: number } | null
+    pointsOfInterest: { name: string; distance?: string }[]
   }>
 ) {
+  const { pointsOfInterest, ...rest } = data
+
   return withTenant(tenantId, async (tx) => {
     const [updated] = await tx
       .update(projects)
-      .set({ ...data, updatedAt: new Date() })
+      .set({
+        ...rest,
+        ...(pointsOfInterest !== undefined
+          ? { pointsOfInterestJson: pointsOfInterest }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)))
       .returning()
     return updated

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/cn'
 
 interface Lead {
@@ -52,7 +53,12 @@ function LeadCard({
         loading && 'opacity-50'
       )}
     >
-      <h3 className="truncate font-medium text-fg">{lead.name}</h3>
+      <Link
+        href={`/dashboard/crm/${lead.id}`}
+        className="truncate font-medium text-fg hover:text-primary hover:underline"
+      >
+        {lead.name}
+      </Link>
       <p className="truncate text-xs text-fg-muted">{lead.email}</p>
       {lead.phone && <p className="text-xs text-fg-subtle">{lead.phone}</p>}
 

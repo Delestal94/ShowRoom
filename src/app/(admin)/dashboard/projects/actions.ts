@@ -26,6 +26,45 @@ function slugify(input: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+/** Splits user-entered text into trimmed, non-empty lines. */
+function toLines(raw: string): string[] {
+  return raw
+    .split('\n')
+    .map((line) => line.replace('\r', '').trim())
+    .filter(Boolean)
+}
+
+/** Accepts "-34.6037, -58.3816" (comma and/or whitespace separated). */
+function parseCoords(raw: string): { lat: number; lng: number } | null {
+  const cleaned = raw.trim()
+  if (!cleaned) return null
+
+  const parts = cleaned.split(/[,\s]+/).filter(Boolean)
+  if (parts.length !== 2) return null
+
+  const lat = Number(parts[0])
+  const lng = Number(parts[1])
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null
+
+  return { lat, lng }
+}
+
+/** One point of interest per line: "Subte línea B — 300 m" */
+function parsePointsOfInterest(raw: string) {
+  return toLines(raw)
+    .slice(0, 20)
+    .map((line) => {
+      const separator = line.search(/\s[—–-]\s/)
+      if (separator === -1) return { name: line, distance: undefined }
+      return {
+        name: line.slice(0, separator).trim(),
+        distance: line.slice(separator + 3).trim() || undefined,
+      }
+    })
+    .filter((p) => p.name)
+}
+
 export async function createProjectAction(
   _prev: CreateProjectState,
   formData: FormData
@@ -73,18 +112,34 @@ export async function updateProjectAction(
   const name = String(formData.get('name') ?? '').trim()
   const address = String(formData.get('address') ?? '').trim()
   const rawSlug = String(formData.get('slug') ?? '').trim()
+  const rawCoords = String(formData.get('coords') ?? '')
+  const rawPoi = String(formData.get('pointsOfInterest') ?? '')
 
   if (!name) return { error: 'Ponele un nombre al proyecto.' }
 
   const slug = slugify(rawSlug || name)
   if (!slug) return { error: 'El slug quedó vacío. Usá letras o números.' }
 
+  const geo = parseCoords(rawCoords)
+  if (rawCoords.trim() && !geo) {
+    return {
+      error:
+        'Revisá las coordenadas: se esperan latitud y longitud separadas por coma. Ej: -34.6037, -58.3816',
+    }
+  }
+
   const tenant = await requireCurrentTenant()
   const existing = await getProject(tenant.tenantId, projectId)
   if (!existing) return { error: 'No tenés acceso a este proyecto.' }
 
   try {
-    await updateProject(tenant.tenantId, projectId, { name, slug, address })
+    await updateProject(tenant.tenantId, projectId, {
+      name,
+      slug,
+      address,
+      geo,
+      pointsOfInterest: parsePointsOfInterest(rawPoi),
+    })
   } catch (error: any) {
     if (error?.code === '23505') {
       return { error: 'Ya existe un proyecto con ese slug. Probá con otro.' }
@@ -95,6 +150,7 @@ export async function updateProjectAction(
 
   revalidatePath('/dashboard/projects')
   revalidatePath(`/dashboard/projects/${projectId}`)
+  revalidatePath(`/${slug}`)
   redirect(`/dashboard/projects/${projectId}`)
 }
 

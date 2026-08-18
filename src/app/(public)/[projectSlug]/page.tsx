@@ -20,6 +20,8 @@ async function findPublishedProject(slug: string) {
       address: true,
       tenantId: true,
       status: true,
+      geo: true,
+      pointsOfInterestJson: true,
     },
     with: {
       tenant: { columns: { name: true, contactWhatsapp: true } },
@@ -82,6 +84,10 @@ export default async function StorefrontPage({
       initialUnits={(project.units || []) as any}
       tours={tours as any}
       whatsappNumber={project.tenant?.contactWhatsapp ?? null}
+      geo={project.geo as { lat: number; lng: number } | null}
+      pointsOfInterest={
+        (project.pointsOfInterestJson ?? []) as { name: string; distance?: string }[]
+      }
     />
   )
 }

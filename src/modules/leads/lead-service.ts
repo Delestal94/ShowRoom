@@ -80,12 +80,47 @@ export async function updateLead(
   input: UpdateLeadInput
 ) {
   return withTenant(tenantId, async (tx) => {
+    const before = await tx.query.leads.findFirst({
+      where: and(eq(leads.id, leadId), eq(leads.tenantId, tenantId)),
+      columns: { status: true },
+    })
+    if (!before) return undefined
+
     const [updated] = await tx
       .update(leads)
       .set({ status: input.status, updatedAt: new Date() })
       .where(and(eq(leads.id, leadId), eq(leads.tenantId, tenantId)))
       .returning()
+
+    // Logged in the same transaction as the change itself, so the timeline
+    // can't end up disagreeing with the lead's actual status.
+    if (updated && input.status && input.status !== before.status) {
+      await tx.insert(leadActivities).values({
+        leadId,
+        type: 'status_change',
+        payloadJson: { from: before.status, to: input.status },
+      })
+    }
+
     return updated
+  })
+}
+
+export async function addLeadNote(tenantId: string, leadId: string, note: string) {
+  return withTenant(tenantId, async (tx) => {
+    // Scoped lookup first: a lead id from another tenant matches nothing, so
+    // the note can never be attached across tenants.
+    const lead = await tx.query.leads.findFirst({
+      where: and(eq(leads.id, leadId), eq(leads.tenantId, tenantId)),
+      columns: { id: true },
+    })
+    if (!lead) return undefined
+
+    const [activity] = await tx
+      .insert(leadActivities)
+      .values({ leadId, type: 'note', payloadJson: { note } })
+      .returning()
+    return activity
   })
 }
 
