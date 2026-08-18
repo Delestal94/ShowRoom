@@ -4,6 +4,7 @@ import { publicDb as db } from '@/server/db/tenant-db'
 import { projects } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { listPublicToursByProject } from '@/modules/tours/tour-service'
+import { listPublicUpdates } from '@/modules/construction/construction-service'
 import { StorefrontClient } from '@/components/storefront-client'
 
 /**
@@ -76,7 +77,10 @@ export default async function StorefrontPage({
     notFound()
   }
 
-  const tours = await listPublicToursByProject(project.id)
+  const [tours, updates] = await Promise.all([
+    listPublicToursByProject(project.id),
+    listPublicUpdates(project.id),
+  ])
 
   return (
     <StorefrontClient
@@ -91,6 +95,7 @@ export default async function StorefrontPage({
         (project.pointsOfInterestJson ?? []) as { name: string; distance?: string }[]
       }
       embed={searchParams.embed === '1'}
+      constructionUpdates={updates as any}
     />
   )
 }

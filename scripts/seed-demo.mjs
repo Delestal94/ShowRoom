@@ -265,6 +265,28 @@ for (const proy of PROYECTOS) {
     }
   }
 
+  // Avances de obra escalonados en el tiempo, con el porcentaje subiendo.
+  const avances = [
+    { m: 9,  pct: 15, t: 'Excavación y submuración terminadas',
+      b: 'Cerramos la etapa de movimiento de suelos. Empezamos con las fundaciones el mes que viene.' },
+    { m: 6,  pct: 35, t: 'Fundaciones completas',
+      b: 'Platea y pilotes finalizados. Arranca la estructura de hormigón.' },
+    { m: 3,  pct: 58, t: 'Estructura hasta el piso 5',
+      b: 'Avanzamos un piso cada tres semanas. Ya se puede ver la volumetría desde la calle.' },
+    { m: 1,  pct: 72, t: 'Mampostería y primeras instalaciones',
+      b: 'Cerramientos exteriores en marcha y tendido de instalaciones sanitarias y eléctricas.' },
+  ]
+  for (const a of avances) {
+    await c.query(
+      `insert into construction_updates
+         (tenant_id, project_id, title, body, progress_percent, images_json, published_at, created_at)
+       values ($1,$2,$3,$4,$5,$6,
+               now() - ($7 || ' months')::interval,
+               now() - ($7 || ' months')::interval)`,
+      [tenant.id, projectId, a.t, a.b, a.pct,
+       JSON.stringify([]), String(a.m)])
+  }
+
   // Leads repartidos por el pipeline, fechados en los últimos 20 días.
   const cantidadLeads = proy.slug === 'torre-almagro' ? 8 : 4
   for (let i = 0; i < cantidadLeads; i++) {
@@ -335,7 +357,7 @@ for (const proy of PROYECTOS) {
   console.log(`  /${proy.slug}`)
   console.log(`  ${proy.unidades.length} unidades (${disponibles} disponibles) · ` +
               `${proy.tours.length} tours de proyecto · ${conContenido.length} unidades con contenido propio`)
-  console.log(`  ${cantidadLeads} leads · ${eventos} eventos`)
+  console.log(`  ${cantidadLeads} leads · ${eventos} eventos · ${avances.length} avances de obra`)
 }
 
 // Los tours viejos quedaron en 'processing' porque se subieron antes del

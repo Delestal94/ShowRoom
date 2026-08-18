@@ -310,6 +310,39 @@ export const brokerLinks = pgTable(
 
 // ============ Analytics ============
 
+/**
+ * Avances de obra. Una preventa dura años: esto es lo que hace que el
+ * comprador vuelva al showroom en vez de visitarlo una sola vez.
+ */
+export const constructionUpdates = pgTable(
+  'construction_updates',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body'),
+    /** 0–100. Se muestra como barra en la página pública. */
+    progressPercent: integer('progress_percent'),
+    /** [{ storageKey, cdnUrl }] — fotos subidas al storage. */
+    imagesJson: jsonb('images_json').default([]),
+    /** Null mientras es borrador; visible al público recién cuando se setea. */
+    publishedAt: timestamp('published_at'),
+    /** Cuándo se avisó por mail, para no notificar dos veces lo mismo. */
+    notifiedAt: timestamp('notified_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdIdx: index('construction_updates_project_id_idx').on(table.projectId),
+    tenantIdIdx: index('construction_updates_tenant_id_idx').on(table.tenantId),
+  })
+)
+
 export const analyticsEvents = pgTable(
   'analytics_events',
   {
