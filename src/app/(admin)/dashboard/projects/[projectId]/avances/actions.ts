@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
+import { getUser } from '@/lib/supabase/server'
 import { getProject } from '@/modules/projects/project-service'
 import { listLeadsByProject } from '@/modules/leads/lead-service'
 import { getSiteUrl } from '@/lib/site-url'
@@ -172,8 +173,14 @@ export async function notifyUpdateAction(
   const images = (update.imagesJson ?? []) as { cdnUrl: string }[]
   const publicUrl = new URL(`/${ctx.project.slug}`, getSiteUrl()).toString()
 
+  // El remitente tiene que ser una dirección del dominio verificado, pero
+  // las respuestas deben llegar a una bandeja real: si alguien contesta
+  // "me interesa la 8B", eso no puede caer en el vacío.
+  const account = await getUser()
+
   const result = await send({
     to: recipients,
+    replyTo: account?.email ?? undefined,
     subject: `${ctx.project.name}: ${update.title}`,
     html: buildProgressEmail({
       projectName: ctx.project.name,
