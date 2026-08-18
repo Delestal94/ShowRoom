@@ -198,11 +198,15 @@ export function UpdateActions({
   updateId,
   published,
   notified,
+  emailConfigured,
 }: {
   projectId: string
   updateId: string
   published: boolean
   notified: boolean
+  /** Sin proveedor de mail el botón no se muestra: ofrecerlo sólo para que
+   *  falle es peor que no tenerlo. La difusión va por WhatsApp. */
+  emailConfigured: boolean
 }) {
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -230,7 +234,7 @@ export function UpdateActions({
           {published ? 'Despublicar' : 'Publicar'}
         </Button>
 
-        {published && !notified && (
+        {emailConfigured && published && !notified && (
           <Button
             size="sm"
             variant="outline"

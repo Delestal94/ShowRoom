@@ -4,8 +4,11 @@ import { notFound } from 'next/navigation'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { listUpdates } from '@/modules/construction/construction-service'
+import { listLeadsByProject } from '@/modules/leads/lead-service'
 import { isEmailConfigured } from '@/modules/notifications/email'
+import { getSiteUrl } from '@/lib/site-url'
 import { NewUpdateForm, UpdateActions } from './avances-client'
+import { ShareUpdatePanel, type Contact } from './share-update'
 
 export const metadata: Metadata = { title: 'Avances de obra' }
 
@@ -18,7 +21,19 @@ export default async function AvancesPage({
   const project = await getProject(tenant.tenantId, params.projectId)
   if (!project) notFound()
 
-  const updates = await listUpdates(tenant.tenantId, params.projectId)
+  const [updates, leads] = await Promise.all([
+    listUpdates(tenant.tenantId, params.projectId),
+    listLeadsByProject(tenant.tenantId, params.projectId),
+  ])
+
+  // Los cerrados quedan afuera: un lead perdido pidió implícitamente no
+  // recibir más novedades, y los ganados ya compraron.
+  const contacts: Contact[] = leads
+    .filter((l) => l.status !== 'lost' && l.status !== 'won')
+    .map((l) => ({ id: l.id, name: l.name, phone: l.phone, status: l.status }))
+
+  const publicUrl = new URL(`/${project.slug}`, getSiteUrl()).toString()
+  const emailOn = isEmailConfigured()
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -36,13 +51,6 @@ export default async function AvancesPage({
           durante los años de obra.
         </p>
       </div>
-
-      {!isEmailConfigured() && (
-        <p className="mt-6 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
-          El aviso por mail no está configurado (faltan <code>RESEND_API_KEY</code> y{' '}
-          <code>RESEND_FROM</code>). Podés publicar avances igual; sólo no se envían.
-        </p>
-      )}
 
       <section className="mt-8 rounded-2xl border border-border bg-surface/50 p-6">
         <h2 className="font-semibold text-fg">Nuevo avance</h2>
@@ -83,7 +91,7 @@ export default async function AvancesPage({
                         </span>
                         {update.notifiedAt && (
                           <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs text-fg-subtle">
-                            Avisado
+                            Avisado por mail
                           </span>
                         )}
                       </div>
@@ -99,6 +107,7 @@ export default async function AvancesPage({
                       updateId={update.id}
                       published={Boolean(update.publishedAt)}
                       notified={Boolean(update.notifiedAt)}
+                      emailConfigured={emailOn}
                     />
                   </div>
 
@@ -119,6 +128,19 @@ export default async function AvancesPage({
                           className="h-20 w-28 rounded-md border border-border object-cover"
                         />
                       ))}
+                    </div>
+                  )}
+
+                  {update.publishedAt && (
+                    <div className="mt-4">
+                      <ShareUpdatePanel
+                        title={update.title}
+                        body={update.body}
+                        progressPercent={update.progressPercent}
+                        projectName={project.name}
+                        publicUrl={publicUrl}
+                        contacts={contacts}
+                      />
                     </div>
                   )}
                 </li>
