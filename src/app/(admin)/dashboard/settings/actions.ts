@@ -18,6 +18,7 @@ export async function updateTenantAction(
   const name = String(formData.get('name') ?? '').trim()
   const rawWhatsapp = String(formData.get('whatsapp') ?? '').trim()
   const rawDomain = String(formData.get('customDomain') ?? '').trim()
+  const rawPortfolio = String(formData.get('portfolio') ?? '[]')
 
   if (!name) return { error: 'El nombre no puede quedar vacío.' }
 
@@ -42,6 +43,29 @@ export async function updateTenantAction(
     return { error: 'Revisá el dominio. Ej: showroom.tuinmobiliaria.com' }
   }
 
+  // Obras entregadas: lista corta, se guarda entera.
+  let portfolio: Record<string, string>[] = []
+  try {
+    const parsed = JSON.parse(rawPortfolio)
+    if (Array.isArray(parsed)) {
+      portfolio = parsed
+        .slice(0, 30)
+        .map((item) => {
+          const clean: Record<string, string> = {}
+          for (const key of ['name', 'year', 'units', 'description', 'imageUrl']) {
+            const value = item?.[key]
+            if (typeof value === 'string' && value.trim()) {
+              clean[key] = value.trim().slice(0, 600)
+            }
+          }
+          return clean
+        })
+        .filter((item) => item.name)
+    }
+  } catch {
+    portfolio = []
+  }
+
   const tenant = await requireCurrentTenant()
 
   try {
@@ -52,6 +76,7 @@ export async function updateTenantAction(
           name,
           contactWhatsapp: whatsapp || null,
           customDomain: customDomain || null,
+          portfolioJson: portfolio,
           updatedAt: new Date(),
         })
         .where(eq(tenants.id, tenant.tenantId))

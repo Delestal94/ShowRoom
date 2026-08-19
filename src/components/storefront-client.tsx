@@ -8,6 +8,14 @@ import { ContactForm } from './contact-form'
 import { ProjectMap } from './project-map'
 import { ConstructionTimeline, type ConstructionUpdate } from './construction-timeline'
 import { FinishComparator, type Finish } from './finish-comparator'
+import {
+  AmenitiesSection,
+  FinancingSection,
+  PortfolioSection,
+  type Amenity,
+  type FinancingPlan,
+  type PortfolioItem,
+} from './project-sections'
 import { LogoMark } from './ui/logo'
 import { trackEvent } from '@/lib/analytics'
 
@@ -57,6 +65,10 @@ interface StorefrontClientProps {
   embed?: boolean
   constructionUpdates?: ConstructionUpdate[]
   finishes?: Finish[]
+  amenities?: Amenity[]
+  financing?: FinancingPlan[]
+  portfolio?: PortfolioItem[]
+  developerName?: string
 }
 
 export function StorefrontClient({
@@ -71,6 +83,10 @@ export function StorefrontClient({
   embed = false,
   constructionUpdates = [],
   finishes = [],
+  amenities = [],
+  financing = [],
+  portfolio = [],
+  developerName,
 }: StorefrontClientProps) {
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
@@ -143,6 +159,14 @@ export function StorefrontClient({
             >
               Unidades
             </a>
+            {amenities.length > 0 && (
+              <a
+                href="#amenities"
+                className="rounded-full px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              >
+                Amenities
+              </a>
+            )}
             {finishes.length > 0 && (
               <a
                 href="#terminaciones"
@@ -220,6 +244,15 @@ export function StorefrontClient({
           </div>
         </section>
 
+        {amenities.length > 0 && (
+          <section id="amenities" className="mt-16 scroll-mt-20">
+            <h2 className="text-title font-semibold text-fg">Amenities</h2>
+            <div className="mt-6">
+              <AmenitiesSection amenities={amenities} />
+            </div>
+          </section>
+        )}
+
         {finishes.length > 0 && (
           <section id="terminaciones" className="mt-16 scroll-mt-20">
             <h2 className="text-title font-semibold text-fg">Terminaciones</h2>
@@ -244,6 +277,18 @@ export function StorefrontClient({
           </section>
         )}
 
+        {financing.length > 0 && (
+          <section id="financiacion" className="mt-16 scroll-mt-20">
+            <h2 className="text-title font-semibold text-fg">Financiación</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Opciones disponibles para esta preventa.
+            </p>
+            <div className="mt-6">
+              <FinancingSection plans={financing} />
+            </div>
+          </section>
+        )}
+
         {geo && (
           <section id="ubicacion" className="mt-16 scroll-mt-20">
             <h2 className="text-title font-semibold text-fg">Ubicación</h2>
@@ -259,6 +304,20 @@ export function StorefrontClient({
           </section>
         )}
       </main>
+
+      {portfolio.length > 0 && (
+        <section className="container-page mt-16">
+          <h2 className="text-title font-semibold text-fg">
+            Obras entregadas{developerName ? ` por ${developerName}` : ''}
+          </h2>
+          <p className="mt-1 text-sm text-fg-muted">
+            Proyectos que ya construimos y entregamos.
+          </p>
+          <div className="mt-6">
+            <PortfolioSection items={portfolio} />
+          </div>
+        </section>
+      )}
 
       {!embed && (
         <footer className="mt-16 border-t border-border">

@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from 'react-dom'
 import { Field } from '@/components/ui/field'
+import { ListEditor } from '@/components/ui/list-editor'
 import { Button } from '@/components/ui/button'
 import { updateTenantAction, type SettingsState } from './actions'
 
@@ -17,7 +18,12 @@ function SubmitButton() {
 export function SettingsForm({
   defaults,
 }: {
-  defaults: { name: string; whatsapp: string; customDomain: string }
+  defaults: {
+    name: string
+    whatsapp: string
+    customDomain: string
+    portfolio: Record<string, string>[]
+  }
 }) {
   const [state, formAction] = useFormState<SettingsState, FormData>(updateTenantAction, {})
 
@@ -66,6 +72,27 @@ export function SettingsForm({
         ver docs/SETUP_DOMINIO.md. Mientras tanto tus proyectos siguen funcionando en la
         dirección actual.
       </p>
+
+      <div className="border-t border-border pt-5">
+        <p className="text-sm font-medium text-fg">Obras entregadas</p>
+        <p className="mt-1 text-xs text-fg-subtle">
+          Se muestran al pie de cada proyecto publicado. Es lo que le da respaldo a una
+          preventa: el comprador ve que ya entregaste antes.
+        </p>
+        <div className="mt-4">
+          <ListEditor
+            name="portfolio"
+            addLabel="Agregar obra"
+            initial={defaults.portfolio}
+            fields={[
+              { key: 'name', label: 'Nombre', placeholder: 'Edificio Rivadavia' },
+              { key: 'year', label: 'Año de entrega', placeholder: '2023' },
+              { key: 'units', label: 'Unidades', placeholder: '48 unidades' },
+              { key: 'description', label: 'Descripción', placeholder: 'Entregado en tiempo y forma.', long: true },
+            ]}
+          />
+        </div>
+      </div>
 
       <SubmitButton />
     </form>

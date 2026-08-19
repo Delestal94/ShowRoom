@@ -32,6 +32,7 @@ export default async function SettingsPage() {
             name: row?.name ?? tenant.tenantName,
             whatsapp: row?.contactWhatsapp ?? '',
             customDomain: row?.customDomain ?? '',
+            portfolio: (row?.portfolioJson ?? []) as Record<string, string>[],
           }}
         />
       </div>

@@ -25,9 +25,11 @@ async function findPublishedProject(slug: string) {
       status: true,
       geo: true,
       pointsOfInterestJson: true,
+      amenitiesJson: true,
+      financingJson: true,
     },
     with: {
-      tenant: { columns: { name: true, contactWhatsapp: true } },
+      tenant: { columns: { name: true, contactWhatsapp: true, portfolioJson: true } },
       units: {
         columns: {
           id: true,
@@ -111,6 +113,10 @@ export default async function StorefrontPage({
       embed={searchParams.embed === '1'}
       constructionUpdates={updates as any}
       finishes={finishes as any}
+      amenities={(project.amenitiesJson ?? []) as any}
+      financing={(project.financingJson ?? []) as any}
+      portfolio={(project.tenant?.portfolioJson ?? []) as any}
+      developerName={project.tenant?.name}
     />
   )
 }
