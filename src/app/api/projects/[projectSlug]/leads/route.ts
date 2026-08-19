@@ -5,6 +5,7 @@ import { publicDb as db } from '@/server/db/tenant-db'
 import { projects, leads } from '@/server/db/schema'
 import { resolveTrackingCode } from '@/modules/brokers/broker-service'
 import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
+import { detectBot } from '@/lib/bot-check'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -35,6 +36,17 @@ export async function POST(
     const email = String(body.email ?? '').trim().toLowerCase()
     const phone = String(body.phone ?? '').trim()
     const message = String(body.message ?? '').trim()
+
+    // Se responde 200 a propósito: si el bot supiera que fue detectado,
+    // iteraría hasta pasar. Para él parece que funcionó; el lead no se crea.
+    const verdict = detectBot({
+      honeypot: body.website,
+      renderedAt: body.renderedAt,
+    })
+    if (verdict.bot) {
+      console.warn(`Lead descartado (${verdict.reason}) en ${params.projectSlug}`)
+      return NextResponse.json({ success: true })
+    }
 
     if (!name || !email) {
       return NextResponse.json(

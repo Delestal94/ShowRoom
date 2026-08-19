@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { users, memberships, tenants } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUser } from '@/lib/supabase/server'
-import { appDb, withUser } from '@/server/db/tenant-db'
+import { withUser, withAuthUser } from '@/server/db/tenant-db'
 
 export interface CurrentTenant {
   tenantId: string
@@ -30,11 +30,11 @@ export async function getCurrentTenant(): Promise<CurrentTenant | null> {
   const authUser = await getUser()
   if (!authUser) return null
 
-  // `users` is not tenant-scoped and carries no RLS, so it's safe to read
-  // before any tenant context exists.
-  const existing = await appDb.query.users.findFirst({
-    where: eq(users.authUserId, authUser.id),
-  })
+  // `users` sí tiene RLS: la política expone únicamente la fila cuyo
+  // auth_user_id coincide con el que se declara acá.
+  const existing = await withAuthUser(authUser.id, (tx) =>
+    tx.query.users.findFirst({ where: eq(users.authUserId, authUser.id) })
+  )
 
   if (existing) {
     // Membership lookup runs under app.user_id: at this point we still
@@ -60,10 +60,12 @@ export async function getCurrentTenant(): Promise<CurrentTenant | null> {
   const emailLocalPart = authUser.email?.split('@')[0] ?? 'mi-inmobiliaria'
   const root = slugify(emailLocalPart) || 'inmobiliaria'
 
-  const [newUser] = await appDb
-    .insert(users)
-    .values({ email: authUser.email ?? '', authUserId: authUser.id })
-    .returning()
+  const [newUser] = await withAuthUser(authUser.id, (tx) =>
+    tx
+      .insert(users)
+      .values({ email: authUser.email ?? '', authUserId: authUser.id })
+      .returning()
+  )
 
   // RLS hides other tenants' rows, so a "is this slug taken?" query would
   // always come back empty. The unique constraint is the real arbiter —

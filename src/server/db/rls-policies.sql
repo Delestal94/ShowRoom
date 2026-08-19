@@ -285,3 +285,20 @@ CREATE POLICY invitations_write ON invitations FOR ALL
 CREATE POLICY invitations_accept ON invitations FOR UPDATE
   USING (token = current_setting('app.invite_token', true))
   WITH CHECK (token = current_setting('app.invite_token', true));
+
+-- ============ Users ============
+-- Se lee en el bootstrap de sesión, antes de conocer el tenant. La app
+-- declara en app.auth_user_id el id de Supabase de quien está autenticado y
+-- la política expone únicamente esa fila.
+--
+-- Sin esto la tabla quedaba sin RLS y cualquier consulta que la alcanzara
+-- podía listar los emails de todos los usuarios de la plataforma.
+
+CREATE POLICY users_select ON users FOR SELECT
+  USING (auth_user_id = current_setting('app.auth_user_id', true));
+
+CREATE POLICY users_insert ON users FOR INSERT
+  WITH CHECK (auth_user_id = current_setting('app.auth_user_id', true));
+
+CREATE POLICY users_update ON users FOR UPDATE
+  USING (auth_user_id = current_setting('app.auth_user_id', true));

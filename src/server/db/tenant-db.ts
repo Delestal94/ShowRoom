@@ -75,6 +75,24 @@ export async function withUser<T>(
 }
 
 /**
+ * Looking up (or creating) the app-level `users` row for a Supabase account.
+ *
+ * Runs before any tenant is known, so it declares the Supabase auth id and
+ * the policy exposes only that person's row. Without this the table would
+ * need to stay RLS-free, leaving every user's email readable by any query
+ * that reached it.
+ */
+export async function withAuthUser<T>(
+  authUserId: string,
+  fn: (tx: TenantTx) => Promise<T>
+): Promise<T> {
+  return appDb.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('app.auth_user_id', ${authUserId}, true)`)
+    return fn(tx)
+  })
+}
+
+/**
  * Reading an invitation by its token, from someone who is not yet a member
  * of that tenant.
  *

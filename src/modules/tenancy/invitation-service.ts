@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { invitations, memberships, users, tenants } from '@/server/db/schema'
 import { eq, and, desc, isNull, sql } from 'drizzle-orm'
-import { appDb, withTenant, withUser, withInviteToken } from '@/server/db/tenant-db'
+import { withTenant, withUser, withInviteToken, withAuthUser } from '@/server/db/tenant-db'
 
 import { type InviteRole } from './invitation-constants'
 
@@ -107,15 +107,14 @@ export async function acceptInvitation(
   if (invite.acceptedAt) return { ok: false, reason: 'used' }
   if (invite.expiresAt.getTime() < Date.now()) return { ok: false, reason: 'expired' }
 
-  let appUser = await appDb.query.users.findFirst({
-    where: eq(users.authUserId, authUserId),
-  })
+  let appUser = await withAuthUser(authUserId, (tx) =>
+    tx.query.users.findFirst({ where: eq(users.authUserId, authUserId) })
+  )
 
   if (!appUser) {
-    const [created] = await appDb
-      .insert(users)
-      .values({ email, authUserId })
-      .returning()
+    const [created] = await withAuthUser(authUserId, (tx) =>
+      tx.insert(users).values({ email, authUserId }).returning()
+    )
     appUser = created
   }
 

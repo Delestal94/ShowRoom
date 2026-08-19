@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { appDb } from '@/server/db/tenant-db'
+import { appDb, withAuthUser } from '@/server/db/tenant-db'
 import { getUser } from '@/lib/supabase/server'
 import { users } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
@@ -19,10 +19,12 @@ export async function isSuperAdmin(): Promise<boolean> {
   const authUser = await getUser()
   if (!authUser) return false
 
-  const row = await appDb.query.users.findFirst({
-    where: eq(users.authUserId, authUser.id),
-    columns: { globalRole: true },
-  })
+  const row = await withAuthUser(authUser.id, (tx) =>
+    tx.query.users.findFirst({
+      where: eq(users.authUserId, authUser.id),
+      columns: { globalRole: true },
+    })
+  )
 
   return row?.globalRole === 'super_admin'
 }

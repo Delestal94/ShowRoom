@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { trackEvent } from '@/lib/analytics'
 
@@ -26,6 +26,9 @@ export function ContactForm({
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' })
+  const [honeypot, setHoneypot] = useState('')
+  // Cuándo se montó el formulario: un envío instantáneo delata a un bot.
+  const renderedAt = useRef(Date.now())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,6 +47,8 @@ export function ContactForm({
             ? `[Unidad ${unitCode}] ${form.message}`.trim()
             : form.message,
           unitCode,
+          website: honeypot,
+          renderedAt: String(renderedAt.current),
         }),
       })
 
@@ -105,6 +110,20 @@ export function ContactForm({
             {error}
           </p>
         )}
+
+        {/* Campo trampa: fuera de la vista y del foco, sin etiqueta visible.
+            Un humano no lo ve; un bot que completa todo lo llena. */}
+        <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+          <label htmlFor="cf-website">No completar</label>
+          <input
+            id="cf-website"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+        </div>
 
         <div>
           <label htmlFor="cf-name" className="mb-1.5 block text-sm font-medium text-fg">
