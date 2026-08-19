@@ -12,12 +12,34 @@ export interface UploadInput {
   fileType: 'glb' | '360' | 'video' | 'image'
 }
 
+/**
+ * Reduce un nombre de archivo a algo seguro para usar como último segmento
+ * de una ruta de storage.
+ *
+ * Sin esto, un `fileName` como "../../otro-tenant/x.png" escapa del prefijo
+ * del tenant y permite escribir en el espacio de otro. El nombre lo elige
+ * quien sube el archivo, así que nunca puede ir directo a la ruta.
+ */
+function safeFileName(raw: string): string {
+  const base = raw
+    .split(/[/\\]/) // descarta cualquier componente de directorio
+    .pop()!
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/^\.+/, '') // evita nombres ocultos y ".."
+    .slice(-120)
+
+  return base || `archivo-${Date.now()}`
+}
+
 export async function generateUploadUrl(input: UploadInput) {
   // Create a bucket name (Supabase requires lowercase, no special chars)
   const bucketName = 'showroom-assets'
 
-  // Build storage key path
-  const storagePath = `${input.tenantId}/${input.projectId}/${input.fileType}/${input.fileName}`
+  // El prefijo lo arma el servidor con ids que ya validó; sólo el nombre
+  // final viene del cliente, y va saneado.
+  const storagePath = `${input.tenantId}/${input.projectId}/${input.fileType}/${safeFileName(input.fileName)}`
 
   // Generate a signed URL for upload (valid for 1 hour)
   const { data, error } = await supabase.storage

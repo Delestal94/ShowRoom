@@ -37,7 +37,15 @@ export async function signInAction(
   formData: FormData
 ): Promise<AuthState> {
   const { email, password } = readCredentials(formData)
-  const redirectTo = String(formData.get('redirectTo') ?? '') || '/dashboard'
+
+  // La página ya valida el parámetro, pero un Server Action es un endpoint
+  // POST invocable por su cuenta: si el destino no se revalida acá, queda
+  // una redirección abierta usable para phishing post-login.
+  const rawRedirect = String(formData.get('redirectTo') ?? '')
+  const redirectTo =
+    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : '/dashboard'
 
   if (!email || !password) {
     return { error: 'Completá email y contraseña.' }

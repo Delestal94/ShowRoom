@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { publicDb as db } from '@/server/db/tenant-db'
 import { projects, leads } from '@/server/db/schema'
 import { resolveTrackingCode } from '@/modules/brokers/broker-service'
+import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -11,6 +12,13 @@ export async function POST(
   request: Request,
   { params }: { params: { projectSlug: string } }
 ) {
+  // Sin esto, cualquiera puede inundar el CRM del cliente con consultas
+  // falsas. 5 por hora es holgado para una persona real y corta el spam.
+  const limit = await checkRateLimit(clientKey(request, 'lead'), 5, 3600)
+  if (!limit.allowed) {
+    return tooManyRequests('Recibimos varias consultas tuyas. Probá de nuevo en un rato.')
+  }
+
   try {
     const project = await db.query.projects.findFirst({
       where: eq(projects.slug, params.projectSlug),

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { recordEvent } from '@/modules/analytics/analytics-service'
 import { resolveTrackingCode } from '@/modules/brokers/broker-service'
+import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
 import { projects } from '@/server/db/schema'
 import { publicDb as db } from '@/server/db/tenant-db'
 import { eq } from 'drizzle-orm'
@@ -11,10 +12,18 @@ export async function POST(request: Request) {
     const { sessionId, events } = body
 
     if (!sessionId || !Array.isArray(events) || events.length === 0) {
-      return Response.json(
-        { error: 'Invalid request' },
-        { status: 400 }
-      )
+      return Response.json({ error: 'Invalid request' }, { status: 400 })
+    }
+
+    // Tope duro por lote: cada evento hace una consulta más un insert, así
+    // que un array sin límite es un DoS y un inflador de la base.
+    if (events.length > 50) {
+      return Response.json({ error: 'Too many events per batch' }, { status: 400 })
+    }
+
+    const limit = await checkRateLimit(clientKey(request, 'analytics'), 120, 3600)
+    if (!limit.allowed) {
+      return tooManyRequests('Demasiados eventos.')
     }
 
     // La atribución se resuelve una vez por lote, no por evento: todos los

@@ -7,6 +7,7 @@ import { projects } from '@/server/db/schema'
 import { getPublicUnitByCode } from '@/modules/units/unit-service'
 import { getSiteUrl } from '@/lib/site-url'
 import { UnitSheet } from '@/modules/pdf/unit-sheet'
+import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
 
 // La generación del PDF necesita APIs de Node, no del runtime Edge.
 export const runtime = 'nodejs'
@@ -19,9 +20,16 @@ export const runtime = 'nodejs'
  * proyectos publicados.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { projectSlug: string; unitCode: string } }
 ) {
+  // Renderizar un PDF es caro en CPU y el endpoint es público: sin freno,
+  // un bucle de requests agota la función.
+  const limit = await checkRateLimit(clientKey(request, 'pdf'), 30, 3600)
+  if (!limit.allowed) {
+    return tooManyRequests('Demasiadas descargas. Probá en un rato.')
+  }
+
   const unitCode = decodeURIComponent(params.unitCode)
 
   const project = await publicDb.query.projects.findFirst({
