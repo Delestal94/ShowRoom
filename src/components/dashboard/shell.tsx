@@ -36,10 +36,12 @@ function NavIcon({ path }: { path: string }) {
 export function DashboardShell({
   email,
   tenantName,
+  isSuperAdmin = false,
   children,
 }: {
   email: string
   tenantName: string
+  isSuperAdmin?: boolean
   children: React.ReactNode
 }) {
   const pathname = usePathname()
@@ -100,6 +102,14 @@ export function DashboardShell({
             <p className="truncate text-xs text-fg-muted" title={email}>
               {email}
             </p>
+            {isSuperAdmin && (
+              <Link
+                href="/super-admin"
+                className="mt-1 block text-xs font-medium text-primary hover:underline"
+              >
+                Panel de plataforma
+              </Link>
+            )}
             <form action={signOutAction} className="mt-2">
               <button
                 type="submit"

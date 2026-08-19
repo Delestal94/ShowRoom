@@ -95,6 +95,14 @@ Para que quede claro qué **no** hay que tocar:
 - Mapa de ubicación con puntos de interés (Leaflet + tiles sin API key)
 - Timeline del lead, con los cambios de estado registrados automáticamente
 - QR descargable, modo embebido para iframe/pantalla táctil, y headers que impiden embeber el panel
+- Ficha técnica en PDF con QR, imprimible y compartible
+- Avances de obra con timeline público y difusión por WhatsApp
+- Links de broker con atribución de leads y reporte consolidado
+- Invitaciones al equipo por link, con roles
+- Comparador de terminaciones
+- Torres/edificios (servicio; falta la UI de asignación)
+- Panel de plataforma para el dueño de ShowRoom
+- Dominio propio: campo y resolución por host (falta conectarlo en Vercel)
 - Aislamiento multi-tenant real con RLS a nivel de Postgres
 - Planes y suscripciones con Mercado Pago, con límites aplicados de verdad
 - CRUD de proyectos completo: crear, listar, ver, editar, publicar/despublicar, borrar
@@ -130,8 +138,10 @@ Los tres primeros ítems de la lista original ya están hechos (unidades, public
 
 Hechos el 2026-08-18: ~~mapa de ubicación~~, ~~timeline del lead~~, ~~embed + QR + modo kiosco~~.
 
-1. **Avances de obra + aviso a inversores** — lo que hace que el comprador vuelva durante los años de obra. Requiere tabla nueva y un proveedor de mail (Resend o similar).
-2. **Links de broker con tracking** — desbloquea los reportes segregados.
-3. **Navegación piso por piso** en el visor 3D. Depende de cómo esté estructurado el modelo GLB: sin nodos por piso en el archivo, no hay nada que seleccionar.
-4. **Invitar usuarios al tenant** — hoy es un solo usuario por inmobiliaria.
-5. El resto (PDF de ficha, edificios, terminaciones, super-admin, dominios custom, más filtros vía `attrs_json`) es valor agregado sobre una base que ya vende.
+Todo lo que estaba en esta lista ya está implementado. Lo que queda:
+
+1. **Navegación piso por piso** en el visor 3D. Depende de cómo esté estructurado el modelo GLB: si el archivo no trae nodos separados por piso, no hay nada que seleccionar. Es tanto un requisito para quien modela como una feature de software.
+2. **Más filtros** vía `units.attrs_json` (cochera, baulera, amenities). El campo existe justo para eso.
+3. **Asignar unidades a torres desde la UI.** El servicio de edificios está hecho y verificado, falta la pantalla que permita agrupar unidades existentes.
+4. **Generador de piezas para redes** — el gran diferencial nuevo de Urbania. Es un producto entero en sí mismo y depende de ser dueño del contenido; ver `ANALISIS_URBANIA.md`.
+5. **Rate limiting** y cache de tenant en Edge Config: deuda técnica que no molesta con el volumen actual.

@@ -7,6 +7,7 @@ import { UnitGrid } from './unit-grid'
 import { ContactForm } from './contact-form'
 import { ProjectMap } from './project-map'
 import { ConstructionTimeline, type ConstructionUpdate } from './construction-timeline'
+import { FinishComparator, type Finish } from './finish-comparator'
 import { LogoMark } from './ui/logo'
 import { trackEvent } from '@/lib/analytics'
 
@@ -55,6 +56,7 @@ interface StorefrontClientProps {
    */
   embed?: boolean
   constructionUpdates?: ConstructionUpdate[]
+  finishes?: Finish[]
 }
 
 export function StorefrontClient({
@@ -68,6 +70,7 @@ export function StorefrontClient({
   pointsOfInterest = [],
   embed = false,
   constructionUpdates = [],
+  finishes = [],
 }: StorefrontClientProps) {
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
@@ -140,6 +143,14 @@ export function StorefrontClient({
             >
               Unidades
             </a>
+            {finishes.length > 0 && (
+              <a
+                href="#terminaciones"
+                className="rounded-full px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+              >
+                Terminaciones
+              </a>
+            )}
             {constructionUpdates.length > 0 && (
               <a
                 href="#avances"
@@ -208,6 +219,18 @@ export function StorefrontClient({
             <UnitGrid units={units} loading={loading} projectSlug={projectSlug} />
           </div>
         </section>
+
+        {finishes.length > 0 && (
+          <section id="terminaciones" className="mt-16 scroll-mt-20">
+            <h2 className="text-title font-semibold text-fg">Terminaciones</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Elegí entre las opciones disponibles para ver cómo queda.
+            </p>
+            <div className="mt-6">
+              <FinishComparator finishes={finishes} />
+            </div>
+          </section>
+        )}
 
         {constructionUpdates.length > 0 && (
           <section id="avances" className="mt-16 scroll-mt-20">

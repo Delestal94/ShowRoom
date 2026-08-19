@@ -17,6 +17,7 @@ export async function updateTenantAction(
 ): Promise<SettingsState> {
   const name = String(formData.get('name') ?? '').trim()
   const rawWhatsapp = String(formData.get('whatsapp') ?? '').trim()
+  const rawDomain = String(formData.get('customDomain') ?? '').trim()
 
   if (!name) return { error: 'El nombre no puede quedar vacío.' }
 
@@ -30,13 +31,29 @@ export async function updateTenantAction(
     }
   }
 
+  // Se acepta el dominio pelado: sin protocolo, sin barra, en minúsculas.
+  const customDomain = rawDomain
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+    .trim()
+
+  if (customDomain && !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(customDomain)) {
+    return { error: 'Revisá el dominio. Ej: showroom.tuinmobiliaria.com' }
+  }
+
   const tenant = await requireCurrentTenant()
 
   try {
     await withTenant(tenant.tenantId, (tx) =>
       tx
         .update(tenants)
-        .set({ name, contactWhatsapp: whatsapp || null, updatedAt: new Date() })
+        .set({
+          name,
+          contactWhatsapp: whatsapp || null,
+          customDomain: customDomain || null,
+          updatedAt: new Date(),
+        })
         .where(eq(tenants.id, tenant.tenantId))
     )
   } catch (error) {

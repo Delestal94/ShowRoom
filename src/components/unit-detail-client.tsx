@@ -150,6 +150,15 @@ export function UnitDetailClient({
               attrs={unit.attrsJson}
             />
 
+            <a
+              href={`/api/projects/${projectSlug}/unidad/${encodeURIComponent(unit.code)}/ficha`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border-strong text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+            >
+              Descargar ficha PDF
+            </a>
+
             {unit.status === 'sold' ? (
               <div className="rounded-2xl border border-border bg-surface/40 p-6 text-center">
                 <p className="font-medium text-fg">Esta unidad ya se vendió</p>

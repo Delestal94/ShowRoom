@@ -180,6 +180,24 @@ export default async function ProjectDetailPage({
         </div>
       </section>
 
+      <section className="mt-6 rounded-2xl border border-border bg-surface/50 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-fg">Terminaciones</h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Comparador de opciones para el comprador.
+            </p>
+          </div>
+          <ButtonLink
+            href={`/dashboard/projects/${project.id}/terminaciones`}
+            size="sm"
+            variant="outline"
+          >
+            Gestionar terminaciones
+          </ButtonLink>
+        </div>
+      </section>
+
       <div className="mt-6">
         <SharePanel
           publicUrl={publicUrl}

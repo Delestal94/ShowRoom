@@ -31,6 +31,7 @@ export default async function SettingsPage() {
           defaults={{
             name: row?.name ?? tenant.tenantName,
             whatsapp: row?.contactWhatsapp ?? '',
+            customDomain: row?.customDomain ?? '',
           }}
         />
       </div>

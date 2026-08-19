@@ -177,10 +177,17 @@ export const buildings = pgTable(
       .references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     floorsCount: integer('floors_count'),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
     projectIdIdx: index('buildings_project_id_idx').on(table.projectId),
+    // El nombre identifica la torre dentro del proyecto: repetirlo haría
+    // ambigua la agrupación de unidades.
+    projectNameIdx: uniqueIndex('buildings_project_name_idx').on(
+      table.projectId,
+      table.name
+    ),
   })
 )
 
@@ -258,9 +265,12 @@ export const finishOptions = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
-    category: text('category').notNull(), // e.g., "flooring", "paint"
+    category: text('category').notNull(), // Pisos, Cocina, Baños…
     name: text('name').notNull(),
+    description: text('description'),
     imageUrl: text('image_url'),
+    storageKey: text('storage_key'),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({

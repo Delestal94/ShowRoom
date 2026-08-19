@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { listPublicToursByProject } from '@/modules/tours/tour-service'
 import { listPublicUpdates } from '@/modules/construction/construction-service'
 import { resolveTrackingCode, registerClick } from '@/modules/brokers/broker-service'
+import { listPublicFinishes } from '@/modules/finishes/finish-service'
 import { StorefrontClient } from '@/components/storefront-client'
 
 /**
@@ -89,9 +90,10 @@ export default async function StorefrontPage({
     }
   }
 
-  const [tours, updates] = await Promise.all([
+  const [tours, updates, finishes] = await Promise.all([
     listPublicToursByProject(project.id),
     listPublicUpdates(project.id),
+    listPublicFinishes(project.id),
   ])
 
   return (
@@ -108,6 +110,7 @@ export default async function StorefrontPage({
       }
       embed={searchParams.embed === '1'}
       constructionUpdates={updates as any}
+      finishes={finishes as any}
     />
   )
 }
