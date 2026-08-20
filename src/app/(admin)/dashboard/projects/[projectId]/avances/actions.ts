@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getUser } from '@/lib/supabase/server'
 import { getProject } from '@/modules/projects/project-service'
@@ -79,7 +80,7 @@ export async function createUpdateAction(
   }
 
   revalidatePath(`/dashboard/projects/${projectId}/avances`)
-  revalidatePath(`/${ctx.project.slug}`)
+  invalidateProject(ctx.project.slug)
   return {
     notice: publish
       ? 'Avance publicado. Ya se ve en la página del proyecto.'
@@ -102,7 +103,7 @@ export async function togglePublishAction(
   if (!row) return { error: 'No encontramos ese avance.' }
 
   revalidatePath(`/dashboard/projects/${projectId}/avances`)
-  revalidatePath(`/${ctx.project.slug}`)
+  invalidateProject(ctx.project.slug)
   return {}
 }
 
@@ -119,7 +120,7 @@ export async function deleteUpdateAction(
 
   await deleteUpdate(ctx.tenant.tenantId, updateId)
   revalidatePath(`/dashboard/projects/${projectId}/avances`)
-  revalidatePath(`/${ctx.project.slug}`)
+  invalidateProject(ctx.project.slug)
   return {}
 }
 

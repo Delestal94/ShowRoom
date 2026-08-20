@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 import { eq, and } from 'drizzle-orm'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
@@ -79,6 +80,6 @@ export async function updateSectionsAction(
   }
 
   revalidatePath(`/dashboard/projects/${projectId}/secciones`)
-  revalidatePath(`/${project.slug}`)
+  invalidateProject(project.slug)
   return { notice: 'Secciones guardadas.' }
 }

@@ -1,16 +1,20 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { eq } from 'drizzle-orm'
-import { publicDb as db } from '@/server/db/tenant-db'
-import { projects, units } from '@/server/db/schema'
-import { getPublicUnitByCode } from '@/modules/units/unit-service'
-import {
-  listPublicToursByProject,
-  listPublicToursByUnit,
-} from '@/modules/tours/tour-service'
+
+
+
+
+
 import { UnitDetailClient } from '@/components/unit-detail-client'
 import { UnitJsonLd, BreadcrumbJsonLd } from '@/components/json-ld'
 import { getSiteUrl } from '@/lib/site-url'
+import {
+  getCachedProject,
+  getCachedProjectContent,
+  getCachedUnit,
+  getCachedUnitTours,
+  getCachedSiblings,
+} from '@/modules/public/cached-storefront'
 
 /**
  * Resolves project + unit for the public detail page. Both queries run
@@ -18,15 +22,10 @@ import { getSiteUrl } from '@/lib/site-url'
  * published — an unpublished project's units are simply not found.
  */
 async function load(projectSlug: string, unitCode: string) {
-  const project = await db.query.projects.findFirst({
-    where: eq(projects.slug, projectSlug),
-    columns: { id: true, name: true, slug: true, status: true, address: true },
-    with: { tenant: { columns: { contactWhatsapp: true } } },
-  })
-
+  const project = await getCachedProject(projectSlug)
   if (!project || project.status !== 'published') return null
 
-  const unit = await getPublicUnitByCode(project.id, unitCode)
+  const unit = await getCachedUnit(project.id, unitCode, projectSlug)
   if (!unit) return null
 
   return { project, unit }
@@ -76,15 +75,12 @@ export default async function UnitDetailPage({
 
   const { project, unit } = data
 
-  const [unitTours, projectTours, siblings] = await Promise.all([
-    listPublicToursByUnit(unit.id),
-    listPublicToursByProject(project.id),
-    db.query.units.findMany({
-      where: eq(units.projectId, project.id),
-      columns: { code: true, status: true, m2: true },
-      orderBy: (u, { asc }) => [asc(u.code)],
-    }),
+  const [unitTours, content, siblings] = await Promise.all([
+    getCachedUnitTours(unit.id, project.slug),
+    getCachedProjectContent(project.id, project.slug),
+    getCachedSiblings(project.id, project.slug),
   ])
+  const projectTours = content.tours
 
   const base = getSiteUrl()
   const canonical = new URL(

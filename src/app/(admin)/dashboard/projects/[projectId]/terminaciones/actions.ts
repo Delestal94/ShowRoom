@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { createFinish, deleteFinish } from '@/modules/finishes/finish-service'
@@ -42,7 +43,7 @@ export async function createFinishAction(
   }
 
   revalidatePath(`/dashboard/projects/${projectId}/terminaciones`)
-  revalidatePath(`/${project.slug}`)
+  invalidateProject(project.slug)
   return { notice: `${name} agregada a ${category}.` }
 }
 
@@ -56,6 +57,6 @@ export async function deleteFinishAction(
 
   await deleteFinish(tenant.tenantId, finishId)
   revalidatePath(`/dashboard/projects/${projectId}/terminaciones`)
-  revalidatePath(`/${project.slug}`)
+  invalidateProject(project.slug)
   return {}
 }

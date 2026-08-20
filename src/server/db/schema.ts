@@ -401,8 +401,11 @@ export const analyticsEvents = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
+    // CASCADE y no SET NULL: un evento sin proyecto no se puede atribuir a
+    // nada, y además rompía la idempotencia del rollup (cada NULL cuenta
+    // como distinto en el índice único).
     projectId: uuid('project_id').references(() => projects.id, {
-      onDelete: 'set null',
+      onDelete: 'cascade',
     }),
     sessionId: text('session_id').notNull(),
     brokerMemberId: uuid('broker_member_id').references(() => memberships.id, {

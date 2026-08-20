@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { withTenant } from '@/server/db/tenant-db'
 import { tenants } from '@/server/db/schema'
+import { listProjects } from '@/modules/projects/project-service'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 
 export interface SettingsState {
   error?: string
@@ -85,6 +87,11 @@ export async function updateTenantAction(
     console.error('Error updating tenant:', error)
     return { error: 'No se pudieron guardar los cambios.' }
   }
+
+  // El WhatsApp y la trayectoria aparecen en la página de cada proyecto,
+  // así que hay que tirar el caché de todos, no sólo del panel.
+  const projects = await listProjects(tenant.tenantId)
+  for (const project of projects) invalidateProject(project.slug)
 
   revalidatePath('/dashboard/settings')
   revalidatePath('/dashboard', 'layout')

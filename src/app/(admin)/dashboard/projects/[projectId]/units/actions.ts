@@ -11,6 +11,7 @@ import {
 } from '@/modules/units/unit-service'
 import { UNIT_STATUSES, type UnitStatus } from '@/modules/units/unit-constants'
 import { checkCanCreate } from '@/modules/billing/billing-service'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 
 export interface UnitActionState {
   error?: string
@@ -61,7 +62,18 @@ async function assertProjectAccess(projectId: string) {
   const tenant = await requireCurrentTenant()
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) throw new Error('NOT_FOUND')
-  return tenant
+  return { tenant, project }
+}
+
+/**
+ * Toda escritura sobre unidades cambia lo que ve el comprador (precio,
+ * disponibilidad), así que tiene que tirar el caché del storefront además
+ * de refrescar el panel.
+ */
+function refreshBoth(projectId: string, slug: string) {
+  revalidatePath(`/dashboard/projects/${projectId}/units`)
+  revalidatePath(`/dashboard/projects/${projectId}`)
+  invalidateProject(slug)
 }
 
 export async function createUnitAction(
@@ -72,12 +84,13 @@ export async function createUnitAction(
   const code = String(formData.get('code') ?? '').trim()
   if (!code) return { error: 'La unidad necesita un código (ej. 8B).' }
 
-  let tenant
+  let ctx
   try {
-    tenant = await assertProjectAccess(projectId)
+    ctx = await assertProjectAccess(projectId)
   } catch {
     return { error: 'No tenés acceso a este proyecto.' }
   }
+  const tenant = ctx.tenant
 
   const limitError = await checkCanCreate(tenant.tenantId, 'unit')
   if (limitError) return { error: limitError }
@@ -98,8 +111,7 @@ export async function createUnitAction(
     return { error: 'No se pudo crear la unidad.' }
   }
 
-  revalidatePath(`/dashboard/projects/${projectId}/units`)
-  revalidatePath(`/dashboard/projects/${projectId}`)
+  refreshBoth(projectId, ctx.project.slug)
   return { notice: `Unidad ${code} creada.` }
 }
 
@@ -119,12 +131,13 @@ export async function updateUnitAction(
 ): Promise<UnitActionState> {
   if (!data.code.trim()) return { error: 'El código no puede quedar vacío.' }
 
-  let tenant
+  let ctx
   try {
-    tenant = await assertProjectAccess(projectId)
+    ctx = await assertProjectAccess(projectId)
   } catch {
     return { error: 'No tenés acceso a este proyecto.' }
   }
+  const tenant = ctx.tenant
 
   try {
     await updateUnit(tenant.tenantId, unitId, {
@@ -142,8 +155,7 @@ export async function updateUnitAction(
     return { error: 'No se pudo guardar la unidad.' }
   }
 
-  revalidatePath(`/dashboard/projects/${projectId}/units`)
-  revalidatePath(`/dashboard/projects/${projectId}`)
+  refreshBoth(projectId, ctx.project.slug)
   return {}
 }
 
@@ -151,12 +163,13 @@ export async function deleteUnitAction(
   projectId: string,
   unitId: string
 ): Promise<UnitActionState> {
-  let tenant
+  let ctx
   try {
-    tenant = await assertProjectAccess(projectId)
+    ctx = await assertProjectAccess(projectId)
   } catch {
     return { error: 'No tenés acceso a este proyecto.' }
   }
+  const tenant = ctx.tenant
 
   try {
     await deleteUnit(tenant.tenantId, unitId)
@@ -165,8 +178,7 @@ export async function deleteUnitAction(
     return { error: 'No se pudo borrar la unidad.' }
   }
 
-  revalidatePath(`/dashboard/projects/${projectId}/units`)
-  revalidatePath(`/dashboard/projects/${projectId}`)
+  refreshBoth(projectId, ctx.project.slug)
   return {}
 }
 
@@ -185,12 +197,13 @@ export async function importUnitsAction(
   const raw = String(formData.get('csv') ?? '').trim()
   if (!raw) return { error: 'Pegá al menos una fila.' }
 
-  let tenant
+  let ctx
   try {
-    tenant = await assertProjectAccess(projectId)
+    ctx = await assertProjectAccess(projectId)
   } catch {
     return { error: 'No tenés acceso a este proyecto.' }
   }
+  const tenant = ctx.tenant
 
   const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
 
@@ -243,8 +256,7 @@ export async function importUnitsAction(
     return { error: 'Falló la importación. Revisá el formato de las filas.' }
   }
 
-  revalidatePath(`/dashboard/projects/${projectId}/units`)
-  revalidatePath(`/dashboard/projects/${projectId}`)
+  refreshBoth(projectId, ctx.project.slug)
 
   const skipped = problems.length ? ` (${problems.length} fila(s) salteada(s))` : ''
   return { notice: `${rows.length} unidad(es) importada(s)${skipped}.` }

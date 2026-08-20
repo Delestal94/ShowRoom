@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { createTour, listToursByProject, type TourKind } from '@/modules/tours/tour-service'
 import { getProject } from '@/modules/projects/project-service'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 
 const VALID_KINDS: TourKind[] = ['360', 'glb-model', 'drone-video', 'image']
 
@@ -41,6 +42,9 @@ export async function POST(
       cdnUrl,
       metadata: { uploadedAt: new Date().toISOString() },
     })
+
+    // Un tour nuevo cambia lo que se ve en la página pública.
+    invalidateProject(project.slug)
 
     return NextResponse.json(
       { success: true, tourId: tour.id, storageKey, cdnUrl },

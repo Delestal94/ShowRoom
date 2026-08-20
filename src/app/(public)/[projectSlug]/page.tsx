@@ -1,13 +1,17 @@
 import type { Metadata } from 'next'
 import { getSiteUrl } from '@/lib/site-url'
+import {
+  getCachedProject,
+  getCachedProjectContent,
+} from '@/modules/public/cached-storefront'
 import { notFound } from 'next/navigation'
-import { publicDb as db } from '@/server/db/tenant-db'
-import { projects } from '@/server/db/schema'
-import { eq } from 'drizzle-orm'
-import { listPublicToursByProject } from '@/modules/tours/tour-service'
-import { listPublicUpdates } from '@/modules/construction/construction-service'
+
+
+
+
+
 import { resolveTrackingCode, registerClick } from '@/modules/brokers/broker-service'
-import { listPublicFinishes } from '@/modules/finishes/finish-service'
+
 import { StorefrontClient } from '@/components/storefront-client'
 import { ProjectJsonLd, BreadcrumbJsonLd } from '@/components/json-ld'
 
@@ -15,38 +19,13 @@ import { ProjectJsonLd, BreadcrumbJsonLd } from '@/components/json-ld'
  * Resolved without tenant context: `projects_select` only exposes published
  * rows to anonymous readers, so an unpublished slug simply isn't found.
  */
+/**
+ * Lectura cacheada: cada visita a un proyecto compartido no debería pegarle
+ * a Postgres. RLS ya filtra por publicado, así que un borrador no se cachea
+ * ni se sirve.
+ */
 async function findPublishedProject(slug: string) {
-  return db.query.projects.findFirst({
-    where: eq(projects.slug, slug),
-    columns: {
-      id: true,
-      name: true,
-      slug: true,
-      address: true,
-      tenantId: true,
-      status: true,
-      geo: true,
-      pointsOfInterestJson: true,
-      amenitiesJson: true,
-      financingJson: true,
-    },
-    with: {
-      tenant: { columns: { name: true, contactWhatsapp: true, portfolioJson: true } },
-      units: {
-        columns: {
-          id: true,
-          code: true,
-          floor: true,
-          m2: true,
-          price: true,
-          currency: true,
-          status: true,
-          orientation: true,
-          bedrooms: true,
-        },
-      },
-    },
-  })
+  return getCachedProject(slug)
 }
 
 export async function generateMetadata({
@@ -105,11 +84,10 @@ export default async function StorefrontPage({
     }
   }
 
-  const [tours, updates, finishes] = await Promise.all([
-    listPublicToursByProject(project.id),
-    listPublicUpdates(project.id),
-    listPublicFinishes(project.id),
-  ])
+  const { tours, updates, finishes } = await getCachedProjectContent(
+    project.id,
+    project.slug
+  )
 
   const base = getSiteUrl()
   const canonical = new URL(`/${project.slug}`, base).toString()

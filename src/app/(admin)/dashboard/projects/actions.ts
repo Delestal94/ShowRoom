@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import {
   createProject,
@@ -150,7 +151,12 @@ export async function updateProjectAction(
 
   revalidatePath('/dashboard/projects')
   revalidatePath(`/dashboard/projects/${projectId}`)
-  revalidatePath(`/${slug}`)
+
+  // Si el slug cambió hay que tirar las dos entradas: la vieja seguiría
+  // sirviendo el proyecto desde caché en una URL que ya no le corresponde.
+  invalidateProject(slug)
+  if (existing.slug !== slug) invalidateProject(existing.slug)
+
   redirect(`/dashboard/projects/${projectId}`)
 }
 
@@ -192,7 +198,7 @@ export async function toggleProjectStatusAction(
 
   revalidatePath('/dashboard/projects')
   revalidatePath(`/dashboard/projects/${projectId}`)
-  revalidatePath(`/${project.slug}`)
+  invalidateProject(project.slug)
   return {}
 }
 
@@ -210,6 +216,8 @@ export async function deleteProjectAction(
     return { error: 'No se pudo borrar el proyecto.' }
   }
 
+  // Sin esto la página seguiría sirviéndose desde caché después de borrada.
+  invalidateProject(project.slug)
   revalidatePath('/dashboard/projects')
   redirect('/dashboard/projects')
 }

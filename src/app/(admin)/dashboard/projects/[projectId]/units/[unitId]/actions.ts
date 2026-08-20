@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getTour, deleteTour } from '@/modules/tours/tour-service'
+import { getProject } from '@/modules/projects/project-service'
+import { invalidateProject } from '@/modules/public/cached-storefront'
 
 export async function deleteTourAction(
   projectId: string,
@@ -25,5 +27,9 @@ export async function deleteTourAction(
 
   revalidatePath(`/dashboard/projects/${projectId}/units/${unitId}`)
   revalidatePath(`/dashboard/projects/${projectId}`)
+
+  const project = await getProject(tenant.tenantId, projectId)
+  if (project) invalidateProject(project.slug)
+
   return {}
 }
