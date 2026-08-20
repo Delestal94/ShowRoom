@@ -12,6 +12,26 @@ export interface RecordEventInput {
   payload?: Record<string, any>
 }
 
+/** Inserta un lote completo en un solo statement. */
+export async function recordEvents(inputs: RecordEventInput[]) {
+  if (inputs.length === 0) return []
+
+  return publicDb
+    .insert(analyticsEvents)
+    .values(
+      inputs.map((input) => ({
+        tenantId: input.tenantId,
+        projectId: input.projectId,
+        sessionId: input.sessionId,
+        brokerMemberId: input.brokerMemberId,
+        brokerLinkId: input.brokerLinkId,
+        eventType: input.eventType,
+        payloadJson: input.payload,
+      }))
+    )
+    .returning({ id: analyticsEvents.id })
+}
+
 export async function recordEvent(input: RecordEventInput) {
   // Ingest comes from the public viewer with no session; the
   // analytics_events_insert policy allows anonymous writes on purpose.

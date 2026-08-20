@@ -1,5 +1,5 @@
 import { buildings, units } from '@/server/db/schema'
-import { eq, and, asc, count } from 'drizzle-orm'
+import { eq, and, asc, count, inArray } from 'drizzle-orm'
 import { withTenant, publicDb } from '@/server/db/tenant-db'
 
 /**
@@ -64,12 +64,12 @@ export async function assignUnitsToBuilding(
 ) {
   if (unitIds.length === 0) return
 
-  return withTenant(tenantId, async (tx) => {
-    for (const unitId of unitIds) {
-      await tx
-        .update(units)
-        .set({ buildingId, updatedAt: new Date() })
-        .where(and(eq(units.id, unitId), eq(units.tenantId, tenantId)))
-    }
-  })
+  // Un solo UPDATE en vez de uno por unidad: asignar una torre de 80
+  // departamentos hacía 80 viajes a la base.
+  return withTenant(tenantId, (tx) =>
+    tx
+      .update(units)
+      .set({ buildingId, updatedAt: new Date() })
+      .where(and(inArray(units.id, unitIds), eq(units.tenantId, tenantId)))
+  )
 }

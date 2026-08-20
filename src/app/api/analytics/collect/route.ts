@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers'
-import { recordEvent } from '@/modules/analytics/analytics-service'
+import { recordEvents } from '@/modules/analytics/analytics-service'
 import { resolveTrackingCode } from '@/modules/brokers/broker-service'
 import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
 import { projects } from '@/server/db/schema'
 import { publicDb as db } from '@/server/db/tenant-db'
-import { eq } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
@@ -31,39 +31,49 @@ export async function POST(request: Request) {
     const ref = cookies().get('sr_ref')?.value
     const link = ref ? await resolveTrackingCode(ref) : null
 
-    // Process each event
-    for (const event of events) {
-      const { projectSlug, unitId, tourId, type, metadata } = event
+    // Los slugs se resuelven una sola vez, no por evento: un lote de 50
+    // eventos de la misma página hacía 50 consultas idénticas. Es el
+    // endpoint de más tráfico de la app, así que el N+1 pegaba fuerte.
+    const slugs = Array.from(
+      new Set(events.map((e: any) => e.projectSlug).filter(Boolean))
+    ) as string[]
 
-      // Resolve project by slug
-      const project = await db.query.projects.findFirst({
-        where: eq(projects.slug, projectSlug),
-        columns: {
-          id: true,
-          tenantId: true,
-        },
-      })
-
-      if (!project) continue
-
-      // Record event
-      await recordEvent({
-        tenantId: project.tenantId,
-        projectId: project.id,
-        sessionId,
-        // Sólo si el link pertenece a este proyecto: un código de otro
-        // proyecto no debe atribuirse acá.
-        brokerLinkId: link?.projectId === project.id ? link.id : undefined,
-        eventType: type,
-        payload: {
-          unit_id: unitId,
-          tour_id: tourId,
-          ...metadata,
-        },
-      })
+    if (slugs.length === 0) {
+      return Response.json({ success: true, processed: 0 })
     }
 
-    return Response.json({ success: true, processed: events.length })
+    const found = await db.query.projects.findMany({
+      where: inArray(projects.slug, slugs),
+      columns: { id: true, tenantId: true, slug: true },
+    })
+    const bySlug = new Map(found.map((p) => [p.slug, p]))
+
+    // Y los eventos se insertan en un solo statement en vez de uno por vuelta.
+    const toInsert = events.flatMap((event: any) => {
+      const project = bySlug.get(event.projectSlug)
+      if (!project) return []
+
+      return [
+        {
+          tenantId: project.tenantId,
+          projectId: project.id,
+          sessionId,
+          // Sólo si el link pertenece a este proyecto: un código de otro
+          // proyecto no debe atribuirse acá.
+          brokerLinkId: link?.projectId === project.id ? link.id : undefined,
+          eventType: String(event.type ?? 'unknown').slice(0, 50),
+          payload: {
+            unit_id: event.unitId,
+            tour_id: event.tourId,
+            ...event.metadata,
+          },
+        },
+      ]
+    })
+
+    await recordEvents(toInsert)
+
+    return Response.json({ success: true, processed: toInsert.length })
   } catch (error) {
     console.error('Error collecting analytics:', error)
     return Response.json(
