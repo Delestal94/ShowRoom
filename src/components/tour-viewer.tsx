@@ -1,11 +1,28 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { GLBViewer } from './viewer3d/glb-viewer'
-import { PanoramaViewer } from './viewer360/panorama-viewer'
 import { trackEvent } from '@/lib/analytics'
 import { cn } from '@/lib/cn'
+
+/**
+ * three.js pesa ~25 MB en disco y varios cientos de kB en el bundle. Cargarlo
+ * estático hacía que una página con sólo fotos y 360 arrastrara todo el motor
+ * 3D igual — caro sobre todo en móvil, que es donde se mira un proyecto.
+ *
+ * ssr:false porque el Canvas necesita WebGL: no hay nada que renderizar en el
+ * servidor.
+ */
+const GLBViewer = dynamic(
+  () => import('./viewer3d/glb-viewer').then((m) => m.GLBViewer),
+  { ssr: false, loading: () => <ViewerSkeleton label="Cargando el modelo 3D…" /> }
+)
+
+const PanoramaViewer = dynamic(
+  () => import('./viewer360/panorama-viewer').then((m) => m.PanoramaViewer),
+  { ssr: false, loading: () => <ViewerSkeleton label="Cargando la panorámica…" /> }
+)
 
 interface Tour {
   id: string
@@ -28,15 +45,19 @@ const TOUR_META: Record<string, { icon: string; label: string }> = {
   image: { icon: '📷', label: 'Foto' },
 }
 
-function LoadingFallback() {
+function ViewerSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex h-full w-full items-center justify-center rounded-2xl border border-border bg-surface">
+    <div className="flex h-full w-full items-center justify-center bg-surface">
       <div className="text-center">
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-border border-t-primary" />
-        <p className="mt-4 text-sm text-fg-muted">Cargando el visor…</p>
+        <p className="mt-4 text-sm text-fg-muted">{label}</p>
       </div>
     </div>
   )
+}
+
+function LoadingFallback() {
+  return <ViewerSkeleton label="Cargando el visor…" />
 }
 
 export function TourViewer({ tours, selectedTourId, projectSlug }: TourViewerProps) {
