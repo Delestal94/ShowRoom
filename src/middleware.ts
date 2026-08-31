@@ -22,10 +22,22 @@ function resolveTenantSlug(hostname: string): string | null {
   return null
 }
 
-const PROTECTED_PREFIXES = ['/dashboard']
+const PROTECTED_PREFIXES = ['/dashboard', '/super-admin']
 const AUTH_ROUTES = ['/sign-in', '/sign-up']
 
+/** Si Supabase no responde en esto, se sigue sin bloquear la request. */
+const AUTH_TIMEOUT_MS = 3000
+
+function needsAuthCheck(pathname: string): boolean {
+  return (
+    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) ||
+    AUTH_ROUTES.includes(pathname)
+  )
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
   const requestHeaders = new Headers(request.headers)
   const tenantSlug = resolveTenantSlug(request.headers.get('host') ?? '')
 
@@ -36,6 +48,27 @@ export async function middleware(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request: { headers: requestHeaders } })
+
+  // Atribución por broker: el código llega en ?ref= al aterrizar, pero el
+  // visitante navega varias páginas antes de dejar sus datos. Es sólo una
+  // cookie, sin viaje de red, así que corre en todas las rutas.
+  const ref = request.nextUrl.searchParams.get('ref')
+  if (ref && /^[A-Z0-9]{4,16}$/.test(ref)) {
+    response.cookies.set('sr_ref', ref, {
+      maxAge: 60 * 60 * 24 * 30,
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+    })
+  }
+
+  // El chequeo de sesión es un viaje de red a Supabase. Hacerlo en TODAS las
+  // rutas — landing, storefront, sitemap, imágenes OG — agregaba esa latencia
+  // a páginas que no necesitan sesión, y cuando Supabase tardaba el
+  // middleware se colgaba entero (MIDDLEWARE_INVOCATION_TIMEOUT).
+  if (!needsAuthCheck(pathname)) {
+    return response
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,24 +92,18 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refreshes the auth token and keeps cookies in sync.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
-
-  // Atribución por broker: el código llega en ?ref= al aterrizar, pero el
-  // visitante navega varias páginas antes de dejar sus datos. Se guarda en
-  // una cookie para que el lead siga atribuido al broker que lo trajo.
-  const ref = request.nextUrl.searchParams.get('ref')
-  if (ref && /^[A-Z0-9]{4,16}$/.test(ref)) {
-    response.cookies.set('sr_ref', ref, {
-      maxAge: 60 * 60 * 24 * 30,
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-    })
+  let user = null
+  try {
+    // Con tope de tiempo: si Supabase no contesta, es preferible dejar pasar
+    // y que el layout del panel resuelva el acceso —hace su propio getUser()—
+    // antes que devolver un 504 a todo el sitio.
+    const result = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
+    ])
+    user = result?.data?.user ?? null
+  } catch {
+    user = null
   }
 
   if (!user && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
@@ -99,9 +126,11 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Everything except static assets and image files — those never need
-     * session refresh and skipping them keeps middleware cost down.
+     * Se excluyen estáticos, imágenes y /api: las rutas de API hacen su
+     * propia autenticación y no leen el header de tenant, así que pasar por
+     * el middleware sólo les agrega latencia. Eso importa sobre todo en la
+     * ingesta de analytics, que es el endpoint de más tráfico.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|glb|hdr)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|glb|hdr)$).*)',
   ],
 }
