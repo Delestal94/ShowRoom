@@ -161,7 +161,11 @@ export async function getHeatmapData(
     if (event.eventType === 'unit_view') {
       heatmapByUnit[unitId].views++
     } else if (event.eventType === 'dwell_time') {
-      heatmapByUnit[unitId].dwell_time_ms += payload?.dwell_time_ms || 0
+      // El payload viene de un endpoint público: si dwell_time_ms llega como
+      // string, el `+=` concatena en vez de sumar y el total sale NaN en el
+      // panel. Se fuerza a número y se descartan valores no finitos.
+      const dwell = Number(payload?.dwell_time_ms)
+      heatmapByUnit[unitId].dwell_time_ms += Number.isFinite(dwell) ? dwell : 0
     } else if (['contact_form_submit', 'whatsapp_click', 'unit_compare', 'tour_view'].includes(event.eventType)) {
       heatmapByUnit[unitId].engagements++
     }

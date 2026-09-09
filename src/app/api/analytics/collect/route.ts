@@ -10,8 +10,14 @@ import { inArray } from 'drizzle-orm'
 // Endpoint público de más tráfico de la app: sin esta validación,
 // `metadata` era un JSON arbitrario que se volcaba directo al payload
 // insertado en la base, sin control de forma ni tamaño.
+// Se acota también el largo de la *clave*, no sólo el del valor: sin esto
+// 20 claves de largo arbitrario pasaban igual y el tope de tamaño que
+// promete este comentario no era tal.
 const metadataSchema = z
-  .record(z.union([z.string().max(500), z.number(), z.boolean(), z.null()]))
+  .record(
+    z.string().max(80),
+    z.union([z.string().max(500), z.number(), z.boolean(), z.null()])
+  )
   .refine((obj) => Object.keys(obj).length <= 20, {
     message: 'Too many metadata keys',
   })
@@ -84,10 +90,13 @@ export async function POST(request: Request) {
           // proyecto no debe atribuirse acá.
           brokerLinkId: link?.projectId === project.id ? link.id : undefined,
           eventType: String(event.type ?? 'unknown').slice(0, 50),
+          // `metadata` va *antes* que las claves reservadas: viene de un
+          // cliente sin auth, así que no puede pisar unit_id ni tour_id
+          // (con las que después se agrupa el heatmap).
           payload: {
+            ...event.metadata,
             unit_id: event.unitId,
             tour_id: event.tourId,
-            ...event.metadata,
           },
         },
       ]
