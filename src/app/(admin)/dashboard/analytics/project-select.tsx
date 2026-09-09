@@ -13,6 +13,7 @@ export function ProjectSelect({
 
   return (
     <select
+      aria-label="Elegir proyecto"
       defaultValue={selectedId ?? ''}
       onChange={(e) => {
         if (e.target.value) router.push(`/dashboard/analytics?projectId=${e.target.value}`)
