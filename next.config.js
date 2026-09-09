@@ -32,9 +32,7 @@ const nextConfig = {
       // blob: es obligatorio: GLTFLoader crea URLs blob: para las texturas
       // del GLB y les hace fetch. Sin esto el modelo carga la geometria pero
       // todas las texturas quedan bloqueadas por CSP.
-      // raw.githack.com (y su redirect a raw.githubusercontent.com) sirven los HDR
-      // de iluminación que usa drei's <Environment preset>
-      "connect-src 'self' blob: https://*.supabase.co https://*.basemaps.cartocdn.com https://unpkg.com https://raw.githack.com https://raw.githubusercontent.com",
+      "connect-src 'self' blob: https://*.supabase.co https://*.basemaps.cartocdn.com https://unpkg.com",
       "media-src 'self' https://*.supabase.co",
       "worker-src 'self' blob:",
       // Sin plugins ni <base> inyectable: dos vectores clásicos que la app

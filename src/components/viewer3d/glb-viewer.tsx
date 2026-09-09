@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, useGLTF, Environment } from '@react-three/drei'
+import { OrbitControls, useGLTF } from '@react-three/drei'
 
 interface GLBViewerProps {
   url: string
@@ -10,15 +10,10 @@ interface GLBViewerProps {
   initialLighting?: 'day' | 'sunset' | 'night'
 }
 
-function GLBModel({ url, lighting }: { url: string; lighting: string }) {
+function GLBModel({ url }: { url: string }) {
   const { scene } = useGLTF(url)
 
-  return (
-    <>
-      <primitive object={scene} />
-      <Environment preset={lighting === 'night' ? 'night' : lighting === 'sunset' ? 'sunset' : 'warehouse'} />
-    </>
-  )
+  return <primitive object={scene} />
 }
 
 function LoadingFallback() {
@@ -52,7 +47,7 @@ export function GLBViewer({
           camera={{ position: [0, 2, 5], fov: 50 }}
           gl={{ antialias: true, alpha: true }}
         >
-          <GLBModel url={url} lighting={lighting} />
+          <GLBModel url={url} />
           <OrbitControls
             autoRotate={false}
             autoRotateSpeed={4}
