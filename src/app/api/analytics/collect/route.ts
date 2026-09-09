@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { z } from 'zod'
 import { recordEvents } from '@/modules/analytics/analytics-service'
 import { resolveTrackingCode } from '@/modules/brokers/broker-service'
 import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
@@ -6,20 +7,40 @@ import { projects } from '@/server/db/schema'
 import { publicDb as db } from '@/server/db/tenant-db'
 import { inArray } from 'drizzle-orm'
 
+// Endpoint público de más tráfico de la app: sin esta validación,
+// `metadata` era un JSON arbitrario que se volcaba directo al payload
+// insertado en la base, sin control de forma ni tamaño.
+const metadataSchema = z
+  .record(z.union([z.string().max(500), z.number(), z.boolean(), z.null()]))
+  .refine((obj) => Object.keys(obj).length <= 20, {
+    message: 'Too many metadata keys',
+  })
+
+const eventSchema = z.object({
+  type: z.string().max(50).optional(),
+  projectSlug: z.string().min(1).max(200).optional(),
+  unitId: z.string().max(200).optional(),
+  tourId: z.string().max(200).optional(),
+  metadata: metadataSchema.optional(),
+})
+
+const bodySchema = z.object({
+  sessionId: z.string().min(1).max(200),
+  // Tope duro por lote: cada evento hace una consulta más un insert, así
+  // que un array sin límite es un DoS y un inflador de la base.
+  events: z.array(eventSchema).min(1).max(50),
+})
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { sessionId, events } = body
+    const rawBody = await request.json().catch(() => null)
+    const parsed = bodySchema.safeParse(rawBody)
 
-    if (!sessionId || !Array.isArray(events) || events.length === 0) {
+    if (!parsed.success) {
       return Response.json({ error: 'Invalid request' }, { status: 400 })
     }
 
-    // Tope duro por lote: cada evento hace una consulta más un insert, así
-    // que un array sin límite es un DoS y un inflador de la base.
-    if (events.length > 50) {
-      return Response.json({ error: 'Too many events per batch' }, { status: 400 })
-    }
+    const { sessionId, events } = parsed.data
 
     const limit = await checkRateLimit(clientKey(request, 'analytics'), 120, 3600)
     if (!limit.allowed) {
@@ -35,7 +56,7 @@ export async function POST(request: Request) {
     // eventos de la misma página hacía 50 consultas idénticas. Es el
     // endpoint de más tráfico de la app, así que el N+1 pegaba fuerte.
     const slugs = Array.from(
-      new Set(events.map((e: any) => e.projectSlug).filter(Boolean))
+      new Set(events.map((e) => e.projectSlug).filter(Boolean))
     ) as string[]
 
     if (slugs.length === 0) {
@@ -49,7 +70,8 @@ export async function POST(request: Request) {
     const bySlug = new Map(found.map((p) => [p.slug, p]))
 
     // Y los eventos se insertan en un solo statement en vez de uno por vuelta.
-    const toInsert = events.flatMap((event: any) => {
+    const toInsert = events.flatMap((event) => {
+      if (!event.projectSlug) return []
       const project = bySlug.get(event.projectSlug)
       if (!project) return []
 
