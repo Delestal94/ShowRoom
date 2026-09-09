@@ -153,7 +153,9 @@ export function TourViewer({ tours, selectedTourId, projectSlug, bleed = false }
         <div
           className={cn(
             'flex flex-wrap gap-2',
-            bleed ? 'pointer-events-auto absolute left-5 top-[5.5rem] max-w-[calc(100%-2.5rem)] sm:top-6 lg:max-w-[60%]' : 'mt-3'
+            bleed
+              ? 'pointer-events-auto absolute left-5 right-5 top-[5.5rem] sm:top-6'
+              : 'mt-3'
           )}
         >
           {tours.map((tour) => {

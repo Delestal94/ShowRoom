@@ -301,14 +301,6 @@ export function StorefrontClient({
           </section>
         )}
 
-        <section id="contacto" className="mt-16 scroll-mt-20 lg:hidden">
-          <ContactForm
-            projectSlug={projectSlug}
-            projectName={projectName}
-            whatsappNumber={whatsappNumber}
-          />
-        </section>
-
         {geo && (
           <section id="ubicacion" className="mt-16 scroll-mt-20">
             <h2 className="text-title font-semibold text-fg">Ubicación</h2>
@@ -323,6 +315,14 @@ export function StorefrontClient({
             </div>
           </section>
         )}
+
+        <section id="contacto" className="mx-auto mt-16 max-w-xl scroll-mt-20">
+          <ContactForm
+            projectSlug={projectSlug}
+            projectName={projectName}
+            whatsappNumber={whatsappNumber}
+          />
+        </section>
       </main>
 
       {portfolio.length > 0 && (

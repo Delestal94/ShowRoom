@@ -1,7 +1,6 @@
 'use client'
 
 import { TourViewer } from './tour-viewer'
-import { ContactForm } from './contact-form'
 import { ButtonLink } from '@/components/ui/button'
 
 interface Tour {
@@ -63,23 +62,12 @@ export function StorefrontHero({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg via-bg/55 to-bg/10" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-bg/70 to-transparent" />
 
-      {/* Card de contacto flotante — sólo desktop, mobile usa la barra fija
-          y la sección de contacto más abajo en el flujo. */}
-      <div className="pointer-events-none absolute inset-0 hidden lg:block">
-        <div className="container-page relative h-full">
-          <div className="pointer-events-auto absolute right-5 top-8 w-[22rem]">
-            <ContactForm
-              projectSlug={projectSlug}
-              projectName={projectName}
-              whatsappNumber={whatsappNumber}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Contenido principal: título, dirección, precio y CTAs */}
-      <div className="relative flex h-full min-h-[calc(100vh-4rem)] flex-col justify-end">
-        <div className="container-page pb-8 sm:pb-12">
+      {/* Contenido principal: título, dirección, precio y CTAs. pointer-events-none
+          en el wrapper porque, aunque el texto está pegado abajo, el div ocupa
+          todo el alto del hero — sin esto tapaba el drag/scroll del visor 3D
+          en el resto de la pantalla. Se reactiva sólo donde hay algo cliqueable. */}
+      <div className="pointer-events-none relative flex h-full min-h-[calc(100vh-4rem)] flex-col justify-end">
+        <div className="container-page pointer-events-auto pb-8 sm:pb-12">
           <div className="max-w-2xl">
             {availableCount > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/30 px-3.5 py-1.5 text-xs font-medium text-white/90 backdrop-blur">
@@ -122,7 +110,7 @@ export function StorefrontHero({
                   href={waHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-13 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/30 px-6 text-base font-medium text-white backdrop-blur transition-colors hover:bg-black/45 lg:hidden"
+                  className="inline-flex h-13 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/30 px-6 text-base font-medium text-white backdrop-blur transition-colors hover:bg-black/45"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
                     <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.4 1.3-2 1.3-.5 0-1.1.2-3.7-.8-3.1-1.3-5.1-4.5-5.2-4.7-.2-.2-1.3-1.7-1.3-3.2s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .5 0 .7.5l1 2.4c.1.2.1.4 0 .6l-.4.6-.3.3c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.2.5.1.6 0l.9-1c.2-.3.4-.2.6-.1l2.2 1c.3.2.5.3.5.4.1.2.1.7-.1 1.4Z" />
