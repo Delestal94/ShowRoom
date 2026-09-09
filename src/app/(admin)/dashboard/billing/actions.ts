@@ -46,6 +46,30 @@ export async function subscribeAction(
     }
   }
 
+  // Prevent double-billing: cancel any existing active subscription before
+  // creating a new preapproval. Otherwise upsertSubscription below overwrites
+  // the only reference we had to the old preapproval, which keeps charging
+  // in Mercado Pago with no way left in the app to cancel it.
+  const current = await getTenantSubscription(tenant.tenantId)
+  if (current.isActive) {
+    const row = await withTenant(tenant.tenantId, (tx) =>
+      tx.query.subscriptions.findFirst({
+        where: eq(subscriptions.tenantId, tenant.tenantId),
+      })
+    )
+    if (row?.mpPreapprovalId) {
+      try {
+        await cancelPreapproval(row.mpPreapprovalId)
+      } catch (error) {
+        console.error('Error cancelando la suscripción anterior en Mercado Pago:', error)
+        return {
+          error:
+            'No pudimos cancelar tu suscripción actual para cambiar de plan. Probá de nuevo en unos minutos.',
+        }
+      }
+    }
+  }
+
   let initPoint: string
   try {
     const preapproval = await createPreapproval({
