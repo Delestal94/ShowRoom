@@ -16,10 +16,11 @@ export default async function UnitsPage({
   params: { projectId: string }
 }) {
   const tenant = await requireCurrentTenant()
-  const project = await getProject(tenant.tenantId, params.projectId)
+  const [project, units] = await Promise.all([
+    getProject(tenant.tenantId, params.projectId),
+    listUnitsByProject(tenant.tenantId, params.projectId),
+  ])
   if (!project) notFound()
-
-  const units = await listUnitsByProject(tenant.tenantId, params.projectId)
 
   const available = units.filter((u) => u.status === 'available').length
   const reserved = units.filter((u) => u.status === 'reserved').length

@@ -26,10 +26,11 @@ export default async function ProjectDetailPage({
   params: { projectId: string }
 }) {
   const tenant = await requireCurrentTenant()
-  const project = await getProject(tenant.tenantId, params.projectId)
+  const [project, tours] = await Promise.all([
+    getProject(tenant.tenantId, params.projectId),
+    listToursByProject(tenant.tenantId, params.projectId),
+  ])
   if (!project) notFound()
-
-  const tours = await listToursByProject(tenant.tenantId, params.projectId)
   const publicUrl = new URL(`/${project.slug}`, getSiteUrl()).toString()
   const qrUrl = new URL(`/api/projects/${project.slug}/qr`, getSiteUrl()).toString()
   const availableUnits = project.units?.filter((u) => u.status === 'available').length ?? 0
