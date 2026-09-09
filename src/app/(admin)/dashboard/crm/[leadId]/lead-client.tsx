@@ -52,7 +52,11 @@ export function LeadStatusPicker({ leadId, status }: { leadId: string; status: s
           </button>
         ))}
       </div>
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {error && (
+        <p role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -80,7 +84,11 @@ export function AddNoteForm({ leadId }: { leadId: string }) {
 
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
-      {state.error && <p className="text-sm text-danger">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-danger">
+          {state.error}
+        </p>
+      )}
       <textarea
         name="note"
         rows={3}
