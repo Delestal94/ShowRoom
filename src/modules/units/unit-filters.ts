@@ -45,10 +45,10 @@ export async function searchUnits(params: UnitFilterParams) {
       status ? eq(units.status, status) : undefined,
       // Orientation filter
       orientation ? eq(units.orientation, orientation) : undefined,
-      // Bedrooms filter
-      bedrooms ? eq(units.bedrooms, bedrooms) : undefined,
-      // Floor filter
-      floor ? eq(units.floor, floor) : undefined,
+      // Bedrooms filter (0 = monoambiente, es un valor válido)
+      bedrooms != null ? eq(units.bedrooms, bedrooms) : undefined,
+      // Floor filter (0 = planta baja, es un valor válido)
+      floor != null ? eq(units.floor, floor) : undefined,
       // Search in code
       search ? ilike(units.code, `%${search}%`) : undefined
     ),
@@ -70,8 +70,14 @@ export function getFilterOptions(unitsList: any[]) {
     .sort((a, b) => a - b)
 
   const orientations = [...new Set(unitsList.map((u) => u.orientation).filter(Boolean))]
-  const bedrooms = [...new Set(unitsList.map((u) => u.bedrooms).filter(Boolean))].sort()
-  const floors = [...new Set(unitsList.map((u) => u.floor).filter(Boolean))].sort()
+  // 0 es un valor válido (monoambiente, planta baja): no se puede usar
+  // filter(Boolean), que también descarta esos casos junto con null/undefined.
+  const bedrooms = [
+    ...new Set(unitsList.map((u) => u.bedrooms).filter((v) => v != null)),
+  ].sort((a, b) => a - b)
+  const floors = [
+    ...new Set(unitsList.map((u) => u.floor).filter((v) => v != null)),
+  ].sort((a, b) => a - b)
 
   return {
     priceRange: {
