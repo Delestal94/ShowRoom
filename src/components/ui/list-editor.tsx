@@ -159,7 +159,9 @@ export function ListEditor({
 
           <div className="mt-3 flex justify-end">
             <Button
-              ref={(el) => (removeButtonRefs.current[index] = el)}
+              ref={(el) => {
+                removeButtonRefs.current[index] = el
+              }}
               type="button"
               size="sm"
               variant="ghost"
