@@ -21,13 +21,18 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   }
 
-  // updateLead scopes by tenantId and runs under RLS, so a lead id from
-  // another tenant matches nothing and falls through to 404.
-  const updated = await updateLead(tenant.tenantId, params.leadId, { status })
+  try {
+    // updateLead scopes by tenantId and runs under RLS, so a lead id from
+    // another tenant matches nothing and falls through to 404.
+    const updated = await updateLead(tenant.tenantId, params.leadId, { status })
 
-  if (!updated) {
-    return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+    if (!updated) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, lead: updated })
+  } catch (error) {
+    console.error('Error updating lead:', error)
+    return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 })
   }
-
-  return NextResponse.json({ success: true, lead: updated })
 }

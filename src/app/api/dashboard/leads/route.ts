@@ -14,10 +14,15 @@ export async function GET(request: Request) {
   const status = url.searchParams.get('status')
   const projectId = url.searchParams.get('projectId')
 
-  const leads = await listLeadsByTenant(tenant.tenantId, {
-    status: status || undefined,
-    projectId: projectId || undefined,
-  })
+  try {
+    const leads = await listLeadsByTenant(tenant.tenantId, {
+      status: status || undefined,
+      projectId: projectId || undefined,
+    })
 
-  return NextResponse.json({ leads })
+    return NextResponse.json({ leads })
+  } catch (error) {
+    console.error('Error listing leads:', error)
+    return NextResponse.json({ error: 'Failed to list leads' }, { status: 500 })
+  }
 }
