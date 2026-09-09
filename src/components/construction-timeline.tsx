@@ -1,3 +1,5 @@
+import Image from 'next/image'
+
 export interface ConstructionUpdate {
   id: string
   title: string
@@ -80,14 +82,18 @@ export function ConstructionTimeline({ updates }: { updates: ConstructionUpdate[
                 {images.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {images.map((img, idx) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <div
                         key={idx}
-                        src={img.cdnUrl}
-                        alt={`Avance: ${update.title}`}
-                        loading="lazy"
-                        className="aspect-[4/3] w-full rounded-md border border-border object-cover"
-                      />
+                        className="relative aspect-[4/3] w-full overflow-hidden rounded-md border border-border"
+                      >
+                        <Image
+                          src={img.cdnUrl}
+                          alt={`Avance: ${update.title}`}
+                          fill
+                          sizes="(max-width: 640px) 50vw, 33vw"
+                          className="object-cover"
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
