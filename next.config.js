@@ -29,7 +29,10 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net",
       "img-src 'self' data: blob: https://*.supabase.co https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://picsum.photos https://fastly.picsum.photos https://unpkg.com",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co https://*.basemaps.cartocdn.com",
+      // blob: es obligatorio: GLTFLoader crea URLs blob: para las texturas
+      // del GLB y les hace fetch. Sin esto el modelo carga la geometria pero
+      // todas las texturas quedan bloqueadas por CSP.
+      "connect-src 'self' blob: https://*.supabase.co https://*.basemaps.cartocdn.com https://unpkg.com",
       "media-src 'self' https://*.supabase.co",
       "worker-src 'self' blob:",
       // Sin plugins ni <base> inyectable: dos vectores clásicos que la app
