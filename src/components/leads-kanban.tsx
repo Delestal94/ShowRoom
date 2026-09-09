@@ -16,7 +16,7 @@ interface Lead {
 
 interface LeadsKanbanProps {
   leads: Lead[]
-  onStatusChange?: (leadId: string, status: string) => Promise<void>
+  onStatusChange?: (leadId: string, status: string) => Promise<{ error?: string } | void>
 }
 
 const STATUSES = [
@@ -32,15 +32,20 @@ function LeadCard({
   onStatusChange,
 }: {
   lead: Lead
-  onStatusChange?: (status: string) => void
+  onStatusChange?: (status: string) => Promise<{ error?: string } | void>
 }) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleStatusChange = async (newStatus: string) => {
     if (!onStatusChange || newStatus === lead.status) return
     setLoading(true)
+    setError(null)
     try {
-      await onStatusChange(newStatus)
+      const result = await onStatusChange(newStatus)
+      if (result?.error) setError(result.error)
+    } catch {
+      setError('No se pudo actualizar el estado del lead.')
     } finally {
       setLoading(false)
     }
@@ -86,6 +91,12 @@ function LeadCard({
             </button>
           ))}
         </div>
+      )}
+
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-danger">
+          {error}
+        </p>
       )}
     </div>
   )
