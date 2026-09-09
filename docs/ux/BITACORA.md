@@ -137,6 +137,40 @@ nueva de diseño: son los defectos que dejó la pasada anterior.
   En Vercel están, pero vuelve el build irreproducible en local. Fuera del
   alcance de presentación.
 
+## 2026-09-09 — Endpoint público de analytics (code-review)
+
+Revisión del commit `b1ffd27` con `/code-review`, el único cambio reciente
+que no había pasado por ninguna pasada de revisión. No es UX: queda acá para
+no volver a revisarlo.
+
+**Hallazgos**
+- [alta] `metadata` se spreadeaba *después* de `unit_id`/`tour_id` en el
+  payload. Viene de un cliente público sin auth y el schema permite claves
+  arbitrarias, así que se podían pisar las dos claves reservadas con las que
+  después agrupa el heatmap — `analytics/collect/route.ts`
+- [alta] `dwell_time_ms` se aceptaba como string; el `+=` de `getHeatmapData`
+  concatenaba en vez de sumar y el total del panel salía NaN —
+  `analytics-service.ts:164`
+- [media] `metadataSchema` acotaba el largo del valor pero no el de la clave:
+  el tope de tamaño que promete el comentario no era tal —
+  `analytics/collect/route.ts`
+
+**Arreglado**
+- El spread de `metadata` va antes que las claves reservadas.
+- `dwell_time_ms` se fuerza a número y se descartan los no finitos.
+- Largo máximo de clave en `metadataSchema`.
+- Verificado con `tsc --noEmit` y `npm run build` (verde con env dummy).
+
+**Pendiente / decidido dejar así**
+- La validación es todo-o-nada por lote: un solo evento inválido devuelve 400
+  y tira el lote entero. Como `flushEvents` ya vació la cola con `splice(0)` y
+  sólo reencola si el fetch *tira*, un 400 pierde en silencio hasta 10 eventos,
+  incluidos los válidos. Arreglarlo es una decisión de contrato cliente/server
+  (filtrar por evento y devolver 200 parcial, o reencolar ante 4xx), no un
+  bug puntual: queda para una pasada propia.
+- El `package-lock.json` está desincronizado de `package.json` (`picomatch`),
+  así que `npm ci` falla y hay que usar `npm install`. Fuera del alcance.
+
 ## Próxima iteración sugerida
 
 Visor 3D / 360 (`tour-viewer.tsx`, `viewer3d/`, `viewer360/`): es el
