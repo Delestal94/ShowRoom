@@ -1,5 +1,5 @@
 import { leads, leadActivities } from '@/server/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, count } from 'drizzle-orm'
 import { withTenant, publicDb } from '@/server/db/tenant-db'
 
 export interface CreateLeadInput {
@@ -156,15 +156,29 @@ export async function getLeadActivities(tenantId: string, leadId: string) {
   })
 }
 
+/**
+ * Counts by status via GROUP BY instead of fetching every lead row: the
+ * CRM and dashboard home each call this alongside a full listLeadsByTenant,
+ * and a tenant with years of leads doesn't need two full-table reads just to
+ * show five numbers.
+ */
 export async function getLeadStats(tenantId: string) {
-  const allLeads = await listLeadsByTenant(tenantId)
+  const rows = await withTenant(tenantId, (tx) =>
+    tx
+      .select({ status: leads.status, total: count() })
+      .from(leads)
+      .where(eq(leads.tenantId, tenantId))
+      .groupBy(leads.status)
+  )
+
+  const byStatus = Object.fromEntries(rows.map((r) => [r.status, Number(r.total)]))
 
   return {
-    total: allLeads.length,
-    new: allLeads.filter((l) => l.status === 'new').length,
-    contacted: allLeads.filter((l) => l.status === 'contacted').length,
-    qualified: allLeads.filter((l) => l.status === 'qualified').length,
-    won: allLeads.filter((l) => l.status === 'won').length,
-    lost: allLeads.filter((l) => l.status === 'lost').length,
+    total: rows.reduce((sum, r) => sum + Number(r.total), 0),
+    new: byStatus.new ?? 0,
+    contacted: byStatus.contacted ?? 0,
+    qualified: byStatus.qualified ?? 0,
+    won: byStatus.won ?? 0,
+    lost: byStatus.lost ?? 0,
   }
 }

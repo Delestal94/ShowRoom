@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 
 /**
  * Supabase client for Server Components, Route Handlers and Server Actions.
@@ -40,11 +41,15 @@ export function createClient() {
 /**
  * Returns the authenticated user, or null. Always use this instead of
  * getSession() on the server: getUser() revalidates the token with Supabase.
+ *
+ * Wrapped in React's cache() so the layout, page and any nested helper that
+ * all need the current user within one request share a single round trip
+ * to Supabase Auth instead of one each.
  */
-export async function getUser() {
+export const getUser = cache(async () => {
   const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   return user
-}
+})

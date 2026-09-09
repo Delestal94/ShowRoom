@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { cache } from 'react'
 import { users, memberships, tenants } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUser } from '@/lib/supabase/server'
@@ -25,8 +26,12 @@ function slugify(input: string): string {
  * the `users` / `tenants` / `memberships` rows on first login.
  *
  * One tenant per account for now — multi-user tenants come later via invites.
+ *
+ * Wrapped in cache(): the admin layout, every nested page and any
+ * requireCurrentTenant() call in between resolve the same tenant within one
+ * request, so this now runs its DB lookups once instead of once per caller.
  */
-export async function getCurrentTenant(): Promise<CurrentTenant | null> {
+export const getCurrentTenant = cache(async (): Promise<CurrentTenant | null> => {
   const authUser = await getUser()
   if (!authUser) return null
 
@@ -106,7 +111,7 @@ export async function getCurrentTenant(): Promise<CurrentTenant | null> {
   }
 
   throw new Error('Could not allocate a unique tenant slug')
-}
+})
 
 /** Same as getCurrentTenant(), but throws for routes that require a tenant. */
 export async function requireCurrentTenant(): Promise<CurrentTenant> {
