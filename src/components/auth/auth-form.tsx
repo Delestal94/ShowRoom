@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'
 import Link from 'next/link'
 import { Field } from '@/components/ui/field'
@@ -103,17 +104,30 @@ export function SignUpForm({
   redirectTo?: string
 }) {
   const [state, formAction] = useFormState(action, initialState)
+  const noticeHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (state.notice) {
+      noticeHeadingRef.current?.focus()
+    }
+  }, [state.notice])
 
   if (state.notice) {
     return (
-      <div className="space-y-5 text-center">
+      <div role="status" aria-live="polite" className="space-y-5 text-center">
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-success/40 bg-success/10">
           <svg viewBox="0 0 24 24" className="h-6 w-6 text-success" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M3 7.5 12 13l9-5.5" strokeLinecap="round" strokeLinejoin="round" />
             <rect x="3" y="5" width="18" height="14" rx="2.5" />
           </svg>
         </span>
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">Revisá tu email</h1>
+        <h1
+          ref={noticeHeadingRef}
+          tabIndex={-1}
+          className="text-2xl font-semibold tracking-tight text-fg focus:outline-none"
+        >
+          Revisá tu email
+        </h1>
         <p className="text-fg-muted">{state.notice}</p>
         <Link href="/sign-in" className="inline-block text-sm font-medium text-primary hover:underline">
           Volver a iniciar sesión
