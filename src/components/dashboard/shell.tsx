@@ -61,6 +61,7 @@ export function DashboardShell({
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
       {/* Sidebar */}
       <aside
+        id="dashboard-sidebar"
         className={cn(
           'fixed inset-y-0 left-0 z-40 w-64 border-r border-border bg-surface/80 backdrop-blur-xl transition-transform lg:static lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
@@ -138,6 +139,8 @@ export function DashboardShell({
             type="button"
             onClick={() => setOpen(true)}
             aria-label="Abrir menú"
+            aria-expanded={open}
+            aria-controls="dashboard-sidebar"
             className="grid h-10 w-10 place-items-center rounded-md border border-border"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75">
