@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 export interface ListField {
@@ -44,6 +44,17 @@ export function ListEditor({
   const [items, setItems] = useState<Item[]>(initial)
   const [uploadingAt, setUploadingAt] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState('')
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const removeButtonRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  // Quitar un ítem lo saca del DOM (y con él, el botón enfocado): sin mover
+  // el foco a propósito el navegador lo manda a <body> y un usuario de
+  // teclado o lector de pantalla pierde su posición en la lista.
+  const removeItem = (index: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== index))
+    const next = removeButtonRefs.current[index - 1] ?? addButtonRef.current
+    requestAnimationFrame(() => next?.focus())
+  }
 
   const update = (index: number, key: string, value: string) => {
     setItems((prev) =>
@@ -148,10 +159,13 @@ export function ListEditor({
 
           <div className="mt-3 flex justify-end">
             <Button
+              ref={(el) => {
+                removeButtonRefs.current[index] = el
+              }}
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => setItems((prev) => prev.filter((_, i) => i !== index))}
+              onClick={() => removeItem(index)}
             >
               Quitar
             </Button>
@@ -162,6 +176,7 @@ export function ListEditor({
       {uploadError && <p className="text-xs text-danger">{uploadError}</p>}
 
       <Button
+        ref={addButtonRef}
         type="button"
         variant="outline"
         size="sm"

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { useFormState, useFormStatus } from 'react-dom'
 import Link from 'next/link'
 import { Field } from '@/components/ui/field'
@@ -29,13 +30,26 @@ function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: st
 }
 
 function Alert({ tone, children }: { tone: 'error' | 'notice'; children: React.ReactNode }) {
+  const ref = useRef<HTMLParagraphElement>(null)
   const styles =
     tone === 'error'
       ? 'border-danger/40 bg-danger/10 text-danger'
       : 'border-success/40 bg-success/10 text-success'
 
+  // Un error de submit no reordena el DOM ni cambia el foco por su cuenta:
+  // sin esto, un usuario de lector de pantalla puede no enterarse de que
+  // el envío falló.
+  useEffect(() => {
+    if (tone === 'error') ref.current?.focus()
+  }, [tone, children])
+
   return (
-    <p role="status" className={`rounded-md border px-4 py-3 text-sm ${styles}`}>
+    <p
+      ref={ref}
+      role={tone === 'error' ? 'alert' : 'status'}
+      tabIndex={-1}
+      className={`rounded-md border px-4 py-3 text-sm outline-none ${styles}`}
+    >
       {children}
     </p>
   )

@@ -120,6 +120,7 @@ export function TourViewer({ tours, selectedTourId, projectSlug }: TourViewerPro
           {tours.map((tour) => {
             const meta = TOUR_META[tour.kind] ?? { icon: '📸', label: 'Tour' }
             const active = currentTourId === tour.id
+            const notReadyId = `tour-not-ready-${tour.id}`
 
             return (
               <button
@@ -127,7 +128,7 @@ export function TourViewer({ tours, selectedTourId, projectSlug }: TourViewerPro
                 type="button"
                 onClick={() => setCurrentTourId(tour.id)}
                 disabled={!tour.cdnUrl}
-                title={tour.cdnUrl ? undefined : 'Este recorrido todavía no está listo'}
+                aria-describedby={tour.cdnUrl ? undefined : notReadyId}
                 className={cn(
                   'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
                   active
@@ -138,6 +139,11 @@ export function TourViewer({ tours, selectedTourId, projectSlug }: TourViewerPro
               >
                 <span aria-hidden>{meta.icon}</span>
                 {meta.label}
+                {!tour.cdnUrl && (
+                  <span id={notReadyId} className="sr-only">
+                    Este recorrido todavía no está listo
+                  </span>
+                )}
               </button>
             )
           })}

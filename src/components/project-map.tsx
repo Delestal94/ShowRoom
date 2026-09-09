@@ -124,7 +124,7 @@ export function ProjectMap({
           rel="noopener noreferrer"
           className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
         >
-          Cómo llegar ↗
+          Cómo llegar ↗<span className="sr-only"> (se abre en una pestaña nueva)</span>
         </a>
 
         {pointsOfInterest.length > 0 && (
