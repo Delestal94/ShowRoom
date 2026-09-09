@@ -313,6 +313,15 @@ export const leads = pgTable(
   (table) => ({
     tenantIdIdx: index('leads_tenant_id_idx').on(table.tenantId),
     projectIdIdx: index('leads_project_id_idx').on(table.projectId),
+    // Los leads se listan por tenant ordenados por fecha (CRM). Agregado en
+    // la migración 0013 como `(tenant_id, created_at DESC)`; declarado acá
+    // para que el schema no quede desincronizado de lo que hay en la base
+    // (drizzle-orm 0.29 no permite expresar orden mixto por columna en un
+    // índice compuesto, así que el DESC vive sólo en el SQL de la migración).
+    tenantCreatedIdx: index('leads_tenant_created_idx').on(
+      table.tenantId,
+      table.createdAt
+    ),
   })
 )
 
@@ -419,6 +428,17 @@ export const analyticsEvents = pgTable(
   (table) => ({
     tenantIdIdx: index('analytics_events_tenant_id_idx').on(table.tenantId),
     sessionIdIdx: index('analytics_events_session_id_idx').on(table.sessionId),
+    // El dashboard de analytics filtra siempre por tenant + proyecto + fecha.
+    // Agregado en la migración 0013 como `(tenant_id, project_id, created_at
+    // DESC)`; declarado acá para que el schema no quede desincronizado de lo
+    // que hay en la base (drizzle-orm 0.29 no permite expresar orden mixto
+    // por columna en un índice compuesto, así que el DESC vive sólo en el
+    // SQL de la migración).
+    tenantProjectDateIdx: index('analytics_events_tenant_project_date_idx').on(
+      table.tenantId,
+      table.projectId,
+      table.createdAt
+    ),
   })
 )
 
