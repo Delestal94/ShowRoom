@@ -20,6 +20,9 @@ interface Unit {
 interface UnitGridProps {
   units: Unit[]
   loading?: boolean
+  /** La consulta falló: distinto de "no hay resultados". */
+  error?: boolean
+  onRetry?: () => void
   onUnitSelect?: (unit: Unit) => void
   projectSlug?: string
 }
@@ -54,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGridProps) {
+export function UnitGrid({ units, loading, error, onRetry, onUnitSelect, projectSlug }: UnitGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -64,6 +67,26 @@ export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGrid
             className="h-44 animate-pulse rounded-2xl border border-border bg-surface/40"
           />
         ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-danger/40 bg-danger/5 p-12 text-center">
+        <h3 className="font-semibold text-fg">No pudimos cargar las unidades</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-fg-muted">
+          Puede ser la conexión. Probá de nuevo en un momento.
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-border-strong px-6 text-sm font-medium text-fg transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            Reintentar
+          </button>
+        )}
       </div>
     )
   }
@@ -105,6 +128,7 @@ export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGrid
             }}
             className={cn(
               'group block rounded-2xl border border-border bg-surface/50 p-5 text-left transition-colors hover:border-primary/50 hover:bg-surface',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
               // Sold units stay clickable — the detail page is still useful
               // as a reference, and it says clearly that it's sold.
               sold && 'opacity-60'
@@ -141,8 +165,10 @@ export function UnitGrid({ units, loading, onUnitSelect, projectSlug }: UnitGrid
               </div>
             </dl>
 
-            <p className="mt-4 text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-              Ver ficha →
+            {/* Antes esto aparecía sólo en hover: en un celular la tarjeta no
+                daba ninguna señal de ser clickeable. */}
+            <p className="mt-4 text-sm font-medium text-primary/80 transition-colors group-hover:text-primary">
+              {sold ? 'Ver ficha' : 'Ver ficha y consultar'} →
             </p>
           </Link>
         )

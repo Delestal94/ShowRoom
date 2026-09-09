@@ -16,6 +16,7 @@ import {
   type FinancingPlan,
   type PortfolioItem,
 } from './project-sections'
+import { MobileContactBar } from './mobile-contact-bar'
 import { LogoMark } from './ui/logo'
 import { trackEvent } from '@/lib/analytics'
 
@@ -91,6 +92,7 @@ export function StorefrontClient({
   const [units, setUnits] = useState<Unit[]>(initialUnits)
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [filters, setFilters] = useState<Record<string, any>>({})
 
   useEffect(() => {
@@ -121,12 +123,17 @@ export function StorefrontClient({
           `/api/projects/${projectSlug}/units/search?${params}`,
           { signal: controller.signal }
         )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setUnits(data.units ?? [])
+        setLoadError(false)
       } catch (error) {
         // Aborted requests are expected when filters change quickly.
         if ((error as Error).name !== 'AbortError') {
           console.error('No se pudieron cargar las unidades:', error)
+          // Sin esto la grilla muestra "no hay unidades que coincidan", que le
+          // miente al comprador: el proyecto sí las tiene, falló la consulta.
+          setLoadError(true)
         }
       } finally {
         if (!controller.signal.aborted) setLoading(false)
@@ -136,6 +143,8 @@ export function StorefrontClient({
     fetchUnits()
     return () => controller.abort()
   }, [filters, projectSlug])
+
+  const retry = () => setFilters((f) => ({ ...f }))
 
   const readyTours = tours.filter((t) => t.status === 'ready')
   const available = units.filter((u) => u.status === 'available').length
@@ -215,7 +224,10 @@ export function StorefrontClient({
             )}
           </div>
 
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+          {/* En mobile el formulario no va acá: entre el visor y los precios
+              obliga a scrollear un formulario entero antes de ver una unidad.
+              Abajo se repite como sección propia, más la barra fija. */}
+          <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
             <ContactForm
               projectSlug={projectSlug}
               projectName={projectName}
@@ -228,7 +240,9 @@ export function StorefrontClient({
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="text-title font-semibold text-fg">Unidades</h2>
             <p className="text-sm text-fg-muted">
-              {loading
+              {loadError
+                ? 'No pudimos cargar el listado'
+                : loading
                 ? 'Buscando…'
                 : `${units.length} ${units.length === 1 ? 'resultado' : 'resultados'}` +
                   (available !== units.length ? ` · ${available} disponibles` : '')}
@@ -240,7 +254,13 @@ export function StorefrontClient({
               <UnitFilters onFiltersChange={setFilters} filterOptions={filterOptions ?? undefined} />
             </div>
 
-            <UnitGrid units={units} loading={loading} projectSlug={projectSlug} />
+            <UnitGrid
+              units={units}
+              loading={loading}
+              error={loadError}
+              onRetry={retry}
+              projectSlug={projectSlug}
+            />
           </div>
         </section>
 
@@ -289,6 +309,14 @@ export function StorefrontClient({
           </section>
         )}
 
+        <section id="contacto" className="mt-16 scroll-mt-20 lg:hidden">
+          <ContactForm
+            projectSlug={projectSlug}
+            projectName={projectName}
+            whatsappNumber={whatsappNumber}
+          />
+        </section>
+
         {geo && (
           <section id="ubicacion" className="mt-16 scroll-mt-20">
             <h2 className="text-title font-semibold text-fg">Ubicación</h2>
@@ -318,6 +346,16 @@ export function StorefrontClient({
           </div>
         </section>
       )}
+
+      {/* Deja aire para que la barra fija no tape el final de la página. */}
+      <div aria-hidden className="h-24 lg:hidden" />
+
+      <MobileContactBar
+        projectSlug={projectSlug}
+        projectName={projectName}
+        whatsappNumber={whatsappNumber}
+        formHref="#contacto"
+      />
 
       {!embed && (
         <footer className="mt-16 border-t border-border">

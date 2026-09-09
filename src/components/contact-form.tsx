@@ -73,7 +73,10 @@ export function ContactForm({
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-success/40 bg-success/5 p-6 text-center">
+      <div
+        role="status"
+        className="rounded-2xl border border-success/40 bg-success/5 p-6 text-center"
+      >
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-success/40 bg-success/10">
           <svg viewBox="0 0 24 24" className="h-5 w-5 text-success" fill="none" stroke="currentColor" strokeWidth="2.2">
             <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -106,7 +109,10 @@ export function ContactForm({
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
         {error && (
-          <p className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
+          <p
+            role="alert"
+            className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger"
+          >
             {error}
           </p>
         )}
@@ -132,6 +138,8 @@ export function ContactForm({
           <input
             id="cf-name"
             required
+            autoComplete="name"
+            enterKeyHint="next"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Tu nombre"
@@ -147,6 +155,9 @@ export function ContactForm({
             id="cf-email"
             type="email"
             required
+            autoComplete="email"
+            inputMode="email"
+            enterKeyHint="next"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             placeholder="vos@email.com"
@@ -161,6 +172,8 @@ export function ContactForm({
           <input
             id="cf-phone"
             type="tel"
+            autoComplete="tel"
+            inputMode="tel"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             placeholder="11 2233-4455"
@@ -182,7 +195,7 @@ export function ContactForm({
           />
         </div>
 
-        <Button type="submit" disabled={loading} className="w-full">
+        <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
           {loading ? 'Enviando…' : 'Enviar consulta'}
         </Button>
 

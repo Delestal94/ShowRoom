@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { TourViewer } from './tour-viewer'
 import { ContactForm } from './contact-form'
 import { UnitSpecCard } from './unit-spec-card'
+import { MobileContactBar } from './mobile-contact-bar'
 import { LogoMark } from './ui/logo'
 import { trackEvent } from '@/lib/analytics'
 import { cn } from '@/lib/cn'
@@ -111,30 +112,6 @@ export function UnitDetailClient({
               </p>
             )}
 
-            {siblings.length > 0 && (
-              <section className="mt-10">
-                <h2 className="text-sm font-medium uppercase tracking-wider text-fg-subtle">
-                  Otras unidades
-                </h2>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {siblings.map((s) => (
-                    <Link
-                      key={s.code}
-                      href={`/${projectSlug}/unidad/${encodeURIComponent(s.code)}`}
-                      className={cn(
-                        'rounded-md border border-border px-3.5 py-2 text-sm transition-colors hover:border-primary/50 hover:text-fg',
-                        s.status === 'sold' ? 'text-fg-subtle' : 'text-fg-muted'
-                      )}
-                      title={`${UNIT_STATUS_LABEL[s.status] ?? s.status}${
-                        s.m2 ? ` · ${Math.round(Number(s.m2))} m²` : ''
-                      }`}
-                    >
-                      {s.code}
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -157,6 +134,7 @@ export function UnitDetailClient({
               className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border-strong text-sm font-medium text-fg transition-colors hover:bg-surface-2"
             >
               Descargar ficha PDF
+              <span className="sr-only"> (se abre en una pestaña nueva)</span>
             </a>
 
             {unit.status === 'sold' ? (
@@ -170,16 +148,62 @@ export function UnitDetailClient({
                 </Link>
               </div>
             ) : (
-              <ContactForm
-                projectSlug={projectSlug}
-                projectName={projectName}
-                unitCode={unit.code}
-                whatsappNumber={whatsappNumber}
-              />
+              <div id="contacto" className="scroll-mt-20">
+                <ContactForm
+                  projectSlug={projectSlug}
+                  projectName={projectName}
+                  unitCode={unit.code}
+                  whatsappNumber={whatsappNumber}
+                />
+              </div>
             )}
           </aside>
         </div>
+
+        {siblings.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-fg-subtle">
+              Otras unidades
+            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {siblings.map((s) => (
+                <Link
+                  key={s.code}
+                  href={`/${projectSlug}/unidad/${encodeURIComponent(s.code)}`}
+                  className={cn(
+                    'rounded-md border border-border px-3.5 py-2 text-sm transition-colors hover:border-primary/50 hover:text-fg',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                    s.status === 'sold' ? 'text-fg-subtle' : 'text-fg-muted'
+                  )}
+                  title={`${UNIT_STATUS_LABEL[s.status] ?? s.status}${
+                    s.m2 ? ` · ${Math.round(Number(s.m2))} m²` : ''
+                  }`}
+                >
+                  {s.code}
+                  <span className="sr-only">
+                    {' '}
+                    — {UNIT_STATUS_LABEL[s.status] ?? s.status}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
+
+      {unit.status !== 'sold' && (
+        <>
+          {/* Aire para que la barra fija no tape el pie. */}
+          <div aria-hidden className="h-24 lg:hidden" />
+          <MobileContactBar
+            projectSlug={projectSlug}
+            projectName={projectName}
+            unitCode={unit.code}
+            whatsappNumber={whatsappNumber}
+            formHref="#contacto"
+          />
+        </>
+      )}
 
       <footer className="mt-16 border-t border-border">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-8 sm:flex-row">
