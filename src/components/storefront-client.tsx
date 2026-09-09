@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { TourViewer } from './tour-viewer'
+import { useState, useEffect, useMemo } from 'react'
+import { StorefrontHero } from './storefront-hero'
 import { UnitFilters } from './unit-filters'
 import { UnitGrid } from './unit-grid'
 import { ContactForm } from './contact-form'
@@ -149,12 +149,21 @@ export function StorefrontClient({
 
   const retry = () => setFilters((f) => ({ ...f }))
 
-  const readyTours = tours.filter((t) => t.status === 'ready')
   const available = units.filter((u) => u.status === 'available').length
+
+  const { minPrice, currency } = useMemo(() => {
+    const available = initialUnits.filter(
+      (u) => u.status === 'available' && Number(u.price) > 0
+    )
+    const min = available.length
+      ? Math.min(...available.map((u) => Number(u.price)))
+      : null
+    return { minPrice: min, currency: available[0]?.currency ?? 'USD' }
+  }, [initialUnits])
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-bg/60 backdrop-blur-xl">
         <div className="container-page flex h-16 items-center justify-between gap-4">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight text-fg">
@@ -207,39 +216,19 @@ export function StorefrontClient({
         </div>
       </header>
 
+      <StorefrontHero
+        projectSlug={projectSlug}
+        projectName={projectName}
+        projectAddress={projectAddress}
+        tours={tours}
+        whatsappNumber={whatsappNumber}
+        availableCount={available}
+        minPrice={minPrice}
+        currency={currency}
+      />
+
       <main className="container-page py-8 sm:py-12">
-        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-          <div className="aspect-[16/10] lg:aspect-auto lg:min-h-[30rem]">
-            {readyTours.length > 0 ? (
-              <TourViewer tours={readyTours as any} projectSlug={projectSlug} />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center rounded-2xl border border-dashed border-border bg-surface/30">
-                <div className="px-6 text-center">
-                  <LogoMark className="mx-auto h-10 w-10 opacity-40" />
-                  <p className="mt-4 font-medium text-fg">
-                    Todavía no hay un recorrido cargado
-                  </p>
-                  <p className="mt-1 text-sm text-fg-muted">
-                    Mientras tanto, podés ver las unidades disponibles más abajo.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* En mobile el formulario no va acá: entre el visor y los precios
-              obliga a scrollear un formulario entero antes de ver una unidad.
-              Abajo se repite como sección propia, más la barra fija. */}
-          <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
-            <ContactForm
-              projectSlug={projectSlug}
-              projectName={projectName}
-              whatsappNumber={whatsappNumber}
-            />
-          </aside>
-        </div>
-
-        <section id="unidades" className="mt-16 scroll-mt-20">
+        <section id="unidades" className="scroll-mt-20">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="text-title font-semibold text-fg">Unidades</h2>
             <p className="text-sm text-fg-muted">
