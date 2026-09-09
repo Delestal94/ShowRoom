@@ -14,10 +14,15 @@ export async function GET(
       columns: {
         id: true,
         tenantId: true,
+        status: true,
       },
     })
 
-    if (!project) {
+    // A los otros endpoints públicos (leads, qr, ficha) ya no dejan ver un
+    // proyecto no publicado; a este le faltaba el mismo chequeo, así que
+    // se podían listar unidades (precios, disponibilidad) de un proyecto
+    // en borrador antes del lanzamiento.
+    if (!project || project.status !== 'published') {
       return Response.json({ error: 'Project not found' }, { status: 404 })
     }
 
