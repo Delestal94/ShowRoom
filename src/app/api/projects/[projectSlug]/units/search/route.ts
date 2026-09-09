@@ -1,5 +1,5 @@
 import { publicDb as db } from '@/server/db/tenant-db'
-import { projects } from '@/server/db/schema'
+import { projects, units as unitsTable } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { searchUnits, getFilterOptions } from '@/modules/units/unit-filters'
 
@@ -62,7 +62,7 @@ export async function GET(
 
     // Get available filter options from all units in project
     const allUnits = await db.query.units.findMany({
-      where: eq(projects.id, project.id),
+      where: eq(unitsTable.projectId, project.id),
     })
 
     const filterOptions = getFilterOptions(allUnits)
