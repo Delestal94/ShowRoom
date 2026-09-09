@@ -9,6 +9,13 @@ import { detectBot } from '@/lib/bot-check'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Sin límites, un payload adversarial puede insertar strings arbitrariamente
+// grandes que después se renderizan tal cual en el CRM del tenant.
+const MAX_NAME = 200
+const MAX_EMAIL = 254
+const MAX_PHONE = 40
+const MAX_MESSAGE = 2000
+
 export async function POST(
   request: Request,
   { params }: { params: { projectSlug: string } }
@@ -32,10 +39,10 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}))
-    const name = String(body.name ?? '').trim()
-    const email = String(body.email ?? '').trim().toLowerCase()
-    const phone = String(body.phone ?? '').trim()
-    const message = String(body.message ?? '').trim()
+    const name = String(body.name ?? '').trim().slice(0, MAX_NAME)
+    const email = String(body.email ?? '').trim().toLowerCase().slice(0, MAX_EMAIL)
+    const phone = String(body.phone ?? '').trim().slice(0, MAX_PHONE)
+    const message = String(body.message ?? '').trim().slice(0, MAX_MESSAGE)
 
     // Se responde 200 a propósito: si el bot supiera que fue detectado,
     // iteraría hasta pasar. Para él parece que funcionó; el lead no se crea.

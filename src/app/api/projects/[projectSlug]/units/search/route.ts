@@ -2,11 +2,19 @@ import { publicDb as db } from '@/server/db/tenant-db'
 import { projects, units as unitsTable } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
 import { searchUnits, getFilterOptions } from '@/modules/units/unit-filters'
+import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
 
 export async function GET(
   request: Request,
   { params }: { params: { projectSlug: string } }
 ) {
+  // Endpoint público de escritura de DB (2 queries por request): sin freno
+  // es un vector de escaneo de precios/disponibilidad ajeno al tráfico real.
+  const limit = await checkRateLimit(clientKey(request, 'units-search'), 60, 3600)
+  if (!limit.allowed) {
+    return tooManyRequests('Demasiadas solicitudes. Probá en un rato.')
+  }
+
   try {
     // Find project by slug (public endpoint, no tenant validation)
     const project = await db.query.projects.findFirst({
