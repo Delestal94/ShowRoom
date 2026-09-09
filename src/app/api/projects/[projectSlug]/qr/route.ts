@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { publicDb } from '@/server/db/tenant-db'
 import { projects } from '@/server/db/schema'
 import { getSiteUrl } from '@/lib/site-url'
+import { checkRateLimit, clientKey, tooManyRequests } from '@/lib/rate-limit'
 
 /**
  * PNG QR pointing at the project's public page — for print material and
@@ -16,6 +17,13 @@ export async function GET(
   request: Request,
   { params }: { params: { projectSlug: string } }
 ) {
+  // Endpoint público sin sesión: sin freno, un loop de requests genera PNGs
+  // de hasta 2000px en un bucle indefinido.
+  const limit = await checkRateLimit(clientKey(request, 'qr'), 60, 3600)
+  if (!limit.allowed) {
+    return tooManyRequests('Demasiadas solicitudes. Probá en un rato.')
+  }
+
   try {
     const project = await publicDb.query.projects.findFirst({
       where: eq(projects.slug, params.projectSlug),
