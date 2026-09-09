@@ -15,10 +15,11 @@ export default async function BrokersPage({
   params: { projectId: string }
 }) {
   const tenant = await requireCurrentTenant()
-  const project = await getProject(tenant.tenantId, params.projectId)
+  const [project, report] = await Promise.all([
+    getProject(tenant.tenantId, params.projectId),
+    getBrokerReport(tenant.tenantId, params.projectId),
+  ])
   if (!project) notFound()
-
-  const report = await getBrokerReport(tenant.tenantId, params.projectId)
   const base = getSiteUrl()
 
   const totals = report.reduce(

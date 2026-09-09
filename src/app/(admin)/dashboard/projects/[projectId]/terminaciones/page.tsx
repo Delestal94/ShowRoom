@@ -14,10 +14,11 @@ export default async function TerminacionesPage({
   params: { projectId: string }
 }) {
   const tenant = await requireCurrentTenant()
-  const project = await getProject(tenant.tenantId, params.projectId)
+  const [project, finishes] = await Promise.all([
+    getProject(tenant.tenantId, params.projectId),
+    listFinishes(tenant.tenantId, params.projectId),
+  ])
   if (!project) notFound()
-
-  const finishes = await listFinishes(tenant.tenantId, params.projectId)
   const groups = groupByCategory(finishes as { category: string }[]) as {
     category: string
     options: typeof finishes
