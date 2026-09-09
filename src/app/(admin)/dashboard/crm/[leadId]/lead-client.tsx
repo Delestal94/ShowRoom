@@ -83,6 +83,7 @@ export function AddNoteForm({ leadId }: { leadId: string }) {
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
       <textarea
         name="note"
+        aria-label="Nota"
         rows={3}
         placeholder="Lo llamé, quedó en pensarlo hasta el viernes…"
         className="w-full rounded-md border border-border bg-surface-2/60 p-3 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"

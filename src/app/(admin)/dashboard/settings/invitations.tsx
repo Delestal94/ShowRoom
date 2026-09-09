@@ -109,11 +109,13 @@ export function InvitationsPanel({
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             name="label"
+            aria-label="Para quién es"
             placeholder="Para quién es (opcional)"
             className="h-11 flex-1 rounded-md border border-border bg-surface-2/60 px-3.5 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
           />
           <select
             name="role"
+            aria-label="Rol"
             defaultValue="editor"
             className="h-11 rounded-md border border-border bg-surface-2/60 px-3 text-sm text-fg focus:border-primary focus:outline-none"
           >

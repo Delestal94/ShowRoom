@@ -98,7 +98,7 @@ export function buildProgressEmail(input: {
       : ''
 
   const image = input.imageUrl
-    ? `<img src="${input.imageUrl}" alt="" style="width:100%;border-radius:12px;margin:16px 0" />`
+    ? `<img src="${input.imageUrl}" alt="Avance de obra: ${escapeHtml(input.title)}" style="width:100%;border-radius:12px;margin:16px 0" />`
     : ''
 
   // Inline styles and a table-free layout: most email clients strip <style>

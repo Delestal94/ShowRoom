@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 export interface ListField {
@@ -44,6 +44,7 @@ export function ListEditor({
   const [items, setItems] = useState<Item[]>(initial)
   const [uploadingAt, setUploadingAt] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState('')
+  const baseId = useId()
 
   const update = (index: number, key: string, value: string) => {
     setItems((prev) =>
@@ -96,54 +97,63 @@ export function ListEditor({
       {items.map((item, index) => (
         <div key={index} className="rounded-md border border-border bg-surface-2/30 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            {fields.map((field) => (
-              <div
-                key={field.key}
-                className={field.long || field.image ? 'sm:col-span-2' : undefined}
-              >
-                <label className="mb-1.5 block text-xs font-medium text-fg-muted">
-                  {field.label}
-                </label>
+            {fields.map((field) => {
+              const fieldId = `${baseId}-${index}-${field.key}`
+              return (
+                <div
+                  key={field.key}
+                  className={field.long || field.image ? 'sm:col-span-2' : undefined}
+                >
+                  <label
+                    htmlFor={fieldId}
+                    className="mb-1.5 block text-xs font-medium text-fg-muted"
+                  >
+                    {field.label}
+                  </label>
 
-                {field.image ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      disabled={uploadingAt === index}
-                      onChange={(e) => uploadImage(index, field.key, e.target.files?.[0])}
-                      className="text-sm text-fg-muted file:mr-3 file:rounded-full file:border file:border-border file:bg-surface-2 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-fg"
-                    />
-                    {uploadingAt === index && (
-                      <span className="text-xs text-fg-muted">Subiendo…</span>
-                    )}
-                    {item[field.key] && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item[field.key]}
-                        alt=""
-                        className="h-12 w-16 rounded border border-border object-cover"
+                  {field.image ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        id={fieldId}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        disabled={uploadingAt === index}
+                        onChange={(e) => uploadImage(index, field.key, e.target.files?.[0])}
+                        className="text-sm text-fg-muted file:mr-3 file:rounded-full file:border file:border-border file:bg-surface-2 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-fg"
                       />
-                    )}
-                  </div>
-                ) : field.long ? (
-                  <textarea
-                    rows={2}
-                    value={item[field.key] ?? ''}
-                    onChange={(e) => update(index, field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    className="w-full rounded-md border border-border bg-surface-2/60 p-2.5 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:outline-none"
-                  />
-                ) : (
-                  <input
-                    value={item[field.key] ?? ''}
-                    onChange={(e) => update(index, field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    className={inputCls}
-                  />
-                )}
-              </div>
-            ))}
+                      {uploadingAt === index && (
+                        <span className="text-xs text-fg-muted">Subiendo…</span>
+                      )}
+                      {item[field.key] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item[field.key]}
+                          alt={`Vista previa de ${field.label.toLowerCase()}`}
+                          className="h-12 w-16 rounded border border-border object-cover"
+                        />
+                      )}
+                    </div>
+                  ) : field.long ? (
+                    <textarea
+                      id={fieldId}
+                      rows={2}
+                      value={item[field.key] ?? ''}
+                      onChange={(e) => update(index, field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      className="w-full rounded-md border border-border bg-surface-2/60 p-2.5 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:outline-none"
+                    />
+                  ) : (
+                    <input
+                      id={fieldId}
+                      value={item[field.key] ?? ''}
+                      onChange={(e) => update(index, field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      className={inputCls}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           <div className="mt-3 flex justify-end">

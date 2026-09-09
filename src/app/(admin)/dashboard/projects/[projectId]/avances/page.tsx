@@ -124,7 +124,7 @@ export default async function AvancesPage({
                         <img
                           key={i}
                           src={img.cdnUrl}
-                          alt=""
+                          alt={`Foto de avance: ${update.title}`}
                           className="h-20 w-28 rounded-md border border-border object-cover"
                         />
                       ))}

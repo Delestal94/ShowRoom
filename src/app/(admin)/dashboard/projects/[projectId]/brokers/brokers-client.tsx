@@ -34,6 +34,7 @@ export function NewBrokerLinkForm({ projectId }: { projectId: string }) {
         <input
           name="brokerName"
           required
+          aria-label="Nombre de la inmobiliaria"
           placeholder="Inmobiliaria Pérez"
           className="h-11 flex-1 rounded-md border border-border bg-surface-2/60 px-3.5 text-sm text-fg placeholder:text-fg-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
         />
