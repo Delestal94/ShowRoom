@@ -100,7 +100,11 @@ function PlanCard({
         ))}
       </ul>
 
-      {state.error && <p className="mt-4 text-sm text-danger">{state.error}</p>}
+      {state.error && (
+        <p role="status" className="mt-4 text-sm text-danger">
+          {state.error}
+        </p>
+      )}
 
       {isCurrent ? (
         <Button variant="outline" disabled className="mt-6 w-full">
@@ -164,7 +168,11 @@ export function CancelButton() {
           Volver
         </Button>
       </div>
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {error && (
+        <p role="status" className="text-xs text-danger">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
