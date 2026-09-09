@@ -113,6 +113,9 @@ export function StorefrontClient({
 
     const fetchUnits = async () => {
       setLoading(true)
+      // Un intento nuevo limpia el error anterior: si no, el encabezado sigue
+      // diciendo "no pudimos cargar" mientras la grilla ya está buscando.
+      setLoadError(false)
       try {
         const params = new URLSearchParams()
         for (const [key, value] of Object.entries(filters)) {
@@ -347,15 +350,17 @@ export function StorefrontClient({
         </section>
       )}
 
-      {/* Deja aire para que la barra fija no tape el final de la página. */}
-      <div aria-hidden className="h-24 lg:hidden" />
-
-      <MobileContactBar
-        projectSlug={projectSlug}
-        projectName={projectName}
-        whatsappNumber={whatsappNumber}
-        formHref="#contacto"
-      />
+      {/* En embed no va: es una barra fixed dentro de un iframe que puede ser
+          más bajo que ella, así que taparía el contenido para siempre, y su
+          link de WhatsApp se lleva al visitante fuera del sitio anfitrión. */}
+      {!embed && (
+        <MobileContactBar
+          projectSlug={projectSlug}
+          projectName={projectName}
+          whatsappNumber={whatsappNumber}
+          formHref="#contacto"
+        />
+      )}
 
       {!embed && (
         <footer className="mt-16 border-t border-border">
@@ -371,6 +376,10 @@ export function StorefrontClient({
           </div>
         </footer>
       )}
+
+      {/* Va último: la barra es fixed al pie, así que el aire tiene que estar
+          después del footer para que no lo tape al llegar al final. */}
+      {!embed && <div aria-hidden className="h-24 lg:hidden" />}
     </div>
   )
 }

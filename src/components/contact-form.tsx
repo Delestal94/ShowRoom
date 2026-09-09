@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { trackEvent } from '@/lib/analytics'
 
@@ -29,6 +29,10 @@ export function ContactForm({
   const [honeypot, setHoneypot] = useState('')
   // Cuándo se montó el formulario: un envío instantáneo delata a un bot.
   const renderedAt = useRef(Date.now())
+  // El storefront monta dos copias del formulario (aside en desktop, sección
+  // en mobile): con ids fijos las etiquetas de la copia visible apuntarían a
+  // los inputs de la copia oculta.
+  const uid = useId()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -120,9 +124,9 @@ export function ContactForm({
         {/* Campo trampa: fuera de la vista y del foco, sin etiqueta visible.
             Un humano no lo ve; un bot que completa todo lo llena. */}
         <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
-          <label htmlFor="cf-website">No completar</label>
+          <label htmlFor={`${uid}-website`}>No completar</label>
           <input
-            id="cf-website"
+            id={`${uid}-website`}
             name="website"
             tabIndex={-1}
             autoComplete="off"
@@ -132,11 +136,11 @@ export function ContactForm({
         </div>
 
         <div>
-          <label htmlFor="cf-name" className="mb-1.5 block text-sm font-medium text-fg">
+          <label htmlFor={`${uid}-name`} className="mb-1.5 block text-sm font-medium text-fg">
             Nombre
           </label>
           <input
-            id="cf-name"
+            id={`${uid}-name`}
             required
             autoComplete="name"
             enterKeyHint="next"
@@ -148,11 +152,11 @@ export function ContactForm({
         </div>
 
         <div>
-          <label htmlFor="cf-email" className="mb-1.5 block text-sm font-medium text-fg">
+          <label htmlFor={`${uid}-email`} className="mb-1.5 block text-sm font-medium text-fg">
             Email
           </label>
           <input
-            id="cf-email"
+            id={`${uid}-email`}
             type="email"
             required
             autoComplete="email"
@@ -166,11 +170,11 @@ export function ContactForm({
         </div>
 
         <div>
-          <label htmlFor="cf-phone" className="mb-1.5 block text-sm font-medium text-fg">
+          <label htmlFor={`${uid}-phone`} className="mb-1.5 block text-sm font-medium text-fg">
             Teléfono
           </label>
           <input
-            id="cf-phone"
+            id={`${uid}-phone`}
             type="tel"
             autoComplete="tel"
             inputMode="tel"
@@ -182,11 +186,11 @@ export function ContactForm({
         </div>
 
         <div>
-          <label htmlFor="cf-msg" className="mb-1.5 block text-sm font-medium text-fg">
+          <label htmlFor={`${uid}-msg`} className="mb-1.5 block text-sm font-medium text-fg">
             Mensaje <span className="font-normal text-fg-subtle">(opcional)</span>
           </label>
           <textarea
-            id="cf-msg"
+            id={`${uid}-msg`}
             rows={3}
             value={form.message}
             onChange={(e) => setForm({ ...form, message: e.target.value })}

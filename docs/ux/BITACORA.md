@@ -90,3 +90,55 @@ Formato de cada entrada:
 - `TourViewer` recibe `tours as any` en ambas pantallas: los tipos de tour
   están duplicados por componente. Es deuda de tipos, fuera del alcance de
   presentación.
+
+---
+
+## 2026-09-09 — Repaso de la iteración mobile (code-review)
+
+Revisión del diff `01a5532~1..HEAD` con `/code-review`. No es una iteración
+nueva de diseño: son los defectos que dejó la pasada anterior.
+
+**Hallazgos**
+- [alta] El storefront monta `ContactForm` dos veces (aside desktop + sección
+  mobile, ambas siempre en el DOM) y los ids estaban hardcodeados
+  (`cf-name`, `cf-email`…). En el celular cada etiqueta visible resolvía al
+  input de la copia oculta: tocar el label no enfocaba nada y el lector de
+  pantalla asociaba mal — `contact-form.tsx`
+- [alta] `MobileContactBar` se renderizaba también con `embed=1`. Es una barra
+  `fixed` dentro de un iframe que puede ser más bajo que ella, así que tapaba
+  el contenido embebido para siempre, y su link de WhatsApp se llevaba al
+  visitante fuera del sitio anfitrión — `storefront-client.tsx`
+- [media] El spacer `h-24` quedó **antes** del `<footer>`, así que la barra
+  seguía tapando el pie al final de la página — `storefront-client.tsx`,
+  `unit-detail-client.tsx`
+- [media] `loadError` sólo se limpiaba al tener éxito, así que el contador
+  seguía diciendo "No pudimos cargar el listado" mientras el reintento ya
+  estaba buscando — `storefront-client.tsx`
+- [media] En la ficha PDF, `decodeURIComponent(params.unitCode)` quedó fuera
+  del try/catch nuevo: un código con `%` suelto tiraba un URIError sin
+  manejar — `ficha/route.ts`
+
+**Arreglado**
+- Los ids del formulario derivan de `useId()`: dos copias montadas no chocan.
+- La barra fija y su spacer quedan detrás de `!embed`, igual que el footer.
+- El spacer pasa después del footer en ambas pantallas.
+- `setLoadError(false)` al arrancar cada búsqueda.
+- El decode del código de unidad va adentro del try, con fallback al valor
+  crudo.
+- Verificado con `npx tsc --noEmit` y `npm run build` (verde con env dummy).
+
+**Pendiente / decidido dejar así**
+- Cuando la búsqueda falla, `UnitGrid` reemplaza la grilla por el panel de
+  error y se pierden las unidades que ya estaban en pantalla. Se dejó así:
+  mostrar unidades que no corresponden a los filtros aplicados también engaña.
+  Si se cambia, hay que aclarar en la UI que el listado está desactualizado.
+- `/api/uploads/presign` crea el cliente de Supabase en el scope del módulo,
+  así que `next build` se cae en "Collecting page data" si faltan las env vars.
+  En Vercel están, pero vuelve el build irreproducible en local. Fuera del
+  alcance de presentación.
+
+## Próxima iteración sugerida
+
+Visor 3D / 360 (`tour-viewer.tsx`, `viewer3d/`, `viewer360/`): es el
+diferencial del producto y es la única área núcleo sin auditar. Interesa sobre
+todo el GLB que no carga, el estado de carga en 4G y el visor en vertical.

@@ -192,17 +192,13 @@ export function UnitDetailClient({
       </main>
 
       {unit.status !== 'sold' && (
-        <>
-          {/* Aire para que la barra fija no tape el pie. */}
-          <div aria-hidden className="h-24 lg:hidden" />
-          <MobileContactBar
-            projectSlug={projectSlug}
-            projectName={projectName}
-            unitCode={unit.code}
-            whatsappNumber={whatsappNumber}
-            formHref="#contacto"
-          />
-        </>
+        <MobileContactBar
+          projectSlug={projectSlug}
+          projectName={projectName}
+          unitCode={unit.code}
+          whatsappNumber={whatsappNumber}
+          formHref="#contacto"
+        />
       )}
 
       <footer className="mt-16 border-t border-border">
@@ -219,6 +215,10 @@ export function UnitDetailClient({
           </a>
         </div>
       </footer>
+
+      {/* Va último: la barra es fixed al pie, así que el aire tiene que estar
+          después del footer para que no lo tape al llegar al final. */}
+      {unit.status !== 'sold' && <div aria-hidden className="h-24 lg:hidden" />}
     </div>
   )
 }

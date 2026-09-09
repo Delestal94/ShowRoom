@@ -30,9 +30,17 @@ export async function GET(
     return tooManyRequests('Demasiadas descargas. Probá en un rato.')
   }
 
-  const unitCode = decodeURIComponent(params.unitCode)
-
   try {
+    // Next ya decodifica el segmento; este decode extra es para los códigos
+    // que se linkean doblemente encodeados. Va adentro del try porque una
+    // secuencia `%` suelta (ej. un código "50%") tira URIError.
+    let unitCode: string
+    try {
+      unitCode = decodeURIComponent(params.unitCode)
+    } catch {
+      unitCode = params.unitCode
+    }
+
     const project = await publicDb.query.projects.findFirst({
       where: eq(projects.slug, params.projectSlug),
       columns: { id: true, name: true, slug: true, address: true, status: true },
