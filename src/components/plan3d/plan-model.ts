@@ -22,6 +22,18 @@ export interface Wall {
   height: number
 }
 
+/**
+ * Rectángulo que el detector automático debe ignorar (RF-54): escalera,
+ * cajetín, tabla de superficies, mobiliario. Sin esto, cualquiera de esas
+ * zonas —líneas rectas y finas igual que un muro— entra como ruido, y la
+ * única forma de sacarlo era borrar cada muro fantasma a mano.
+ */
+export interface IgnoreZone {
+  id: string
+  a: Point
+  b: Point
+}
+
 export type OpeningKind = 'door' | 'window'
 
 export interface Opening {
@@ -51,6 +63,7 @@ export interface PlanModel {
    * retiros, con patio interno).
    */
   exteriorContour: Point[]
+  ignoreZones: IgnoreZone[]
   defaultWallHeight: number
   defaultWallThickness: number
 }
@@ -72,6 +85,7 @@ export function emptyPlan(): PlanModel {
     walls: [],
     openings: [],
     exteriorContour: [],
+    ignoreZones: [],
     defaultWallHeight: 2.6,
     defaultWallThickness: 0.15,
   }

@@ -29,8 +29,9 @@ const TOOLS: { id: EditorMode; label: string; hint: string }[] = [
   { id: 'calibrate', label: 'Calibrar', hint: 'Marcá dos puntos sobre una medida conocida del plano.' },
   { id: 'draw', label: 'Trazar muros', hint: 'Click para empezar, click para cerrar cada tramo. Esc corta la cadena.' },
   { id: 'contour', label: 'Contorno', hint: 'Click en cada esquina del perímetro exterior, en orden. Define la losa real.' },
+  { id: 'ignore', label: 'Zona a ignorar', hint: 'Click en una esquina y click en la opuesta. El detector automático ignora lo que quede adentro.' },
   { id: 'openings', label: 'Aberturas', hint: 'Click sobre un muro para colocar la abertura elegida.' },
-  { id: 'erase', label: 'Borrar', hint: 'Click sobre un muro o una abertura para eliminarla.' },
+  { id: 'erase', label: 'Borrar', hint: 'Click sobre un muro, una abertura o una zona para eliminarla.' },
 ]
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -42,6 +43,7 @@ type PersistedModel = Pick<
   | 'walls'
   | 'openings'
   | 'exteriorContour'
+  | 'ignoreZones'
   | 'defaultWallHeight'
   | 'defaultWallThickness'
   | 'imageWidth'
@@ -72,6 +74,7 @@ export function PlanStudio({
     walls: initialModelJson?.walls ?? [],
     openings: initialModelJson?.openings ?? [],
     exteriorContour: initialModelJson?.exteriorContour ?? [],
+    ignoreZones: initialModelJson?.ignoreZones ?? [],
     defaultWallHeight: initialModelJson?.defaultWallHeight ?? 2.6,
     defaultWallThickness: initialModelJson?.defaultWallThickness ?? 0.15,
     imageWidth: initialModelJson?.imageWidth ?? 0,
@@ -174,6 +177,7 @@ export function PlanStudio({
         walls: model.walls,
         openings: model.openings,
         exteriorContour: model.exteriorContour,
+        ignoreZones: model.ignoreZones,
         defaultWallHeight: model.defaultWallHeight,
         defaultWallThickness: model.defaultWallThickness,
         imageWidth: model.imageWidth,
@@ -204,6 +208,7 @@ export function PlanStudio({
     model.walls,
     model.openings,
     model.exteriorContour,
+    model.ignoreZones,
     model.defaultWallHeight,
     model.defaultWallThickness,
     model.pxPerMeter,
@@ -241,6 +246,7 @@ export function PlanStudio({
         minLengthM: detection.minLengthM,
         maxThicknessM: detection.maxThicknessM,
         wallHeight: model.defaultWallHeight,
+        ignoreZones: model.ignoreZones,
       })
       update((prev) => ({ ...prev, walls: found, openings: [] }))
       setNotice(
@@ -308,6 +314,15 @@ export function PlanStudio({
     update((prev) => ({ ...prev, exteriorContour: [...prev.exteriorContour, point] }))
 
   const clearContour = () => update((prev) => ({ ...prev, exteriorContour: [] }))
+
+  const addIgnoreZone = (a: Point, b: Point) =>
+    update((prev) => ({
+      ...prev,
+      ignoreZones: [...prev.ignoreZones, { id: createId('zone'), a, b }],
+    }))
+
+  const deleteIgnoreZone = (id: string) =>
+    update((prev) => ({ ...prev, ignoreZones: prev.ignoreZones.filter((z) => z.id !== id) }))
 
   const applyDefaultsToAll = () =>
     update((prev) => ({
@@ -496,6 +511,8 @@ export function PlanStudio({
               onAddOpening={addOpening}
               onDeleteOpening={deleteOpening}
               onAddContourPoint={addContourPoint}
+              onAddIgnoreZone={addIgnoreZone}
+              onDeleteIgnoreZone={deleteIgnoreZone}
             />
           )}
           {pane !== '2d' && <PlanViewer3D model={model} />}
@@ -633,6 +650,23 @@ export function PlanStudio({
                       Borrar contorno
                     </button>
                   </div>
+                </div>
+              </Panel>
+
+              <Panel title="Zonas a ignorar">
+                <div className="space-y-3">
+                  <p className="text-xs text-fg-muted">
+                    Escalera, cajetín, mobiliario: cualquier línea recta y fina que no sea un
+                    muro. El detector automático descarta todo lo que quede adentro (RF-54).
+                  </p>
+                  <Metric label="Zonas marcadas" value={String(model.ignoreZones.length)} />
+                  <button
+                    type="button"
+                    onClick={() => setMode('ignore')}
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    Marcar zona
+                  </button>
                 </div>
               </Panel>
 

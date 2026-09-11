@@ -26,7 +26,7 @@
  * muros en diagonal y los curvos hay que trazarlos a mano.
  */
 
-import type { Wall } from './plan-model'
+import type { IgnoreZone, Point, Wall } from './plan-model'
 import { createId } from './plan-model'
 
 export interface DetectOptions {
@@ -37,6 +37,13 @@ export interface DetectOptions {
   minLengthM: number
   maxThicknessM: number
   wallHeight: number
+  /**
+   * RF-54: rectángulos marcados a mano (escalera, cajetín, mobiliario) en
+   * coordenadas de la imagen original. Sus píxeles se descartan antes de
+   * buscar corridas, así que ni el modo sólido ni el de par de líneas los
+   * puede leer como muro.
+   */
+  ignoreZones?: IgnoreZone[]
 }
 
 /** Ancho máximo de trabajo: acota el costo sin perder muros. */
@@ -211,6 +218,22 @@ function pairParallelLines(groups: Group[], minGapPx: number, maxGapPx: number):
   return result
 }
 
+/** Convierte una zona en coordenadas de la imagen original al lienzo de trabajo (posiblemente reescalado), recortado a sus bordes. */
+function zoneToWorkingRect(
+  a: Point,
+  b: Point,
+  scale: number,
+  w: number,
+  h: number
+): { x0: number; x1: number; y0: number; y1: number } {
+  return {
+    x0: Math.max(0, Math.floor(Math.min(a.x, b.x) * scale)),
+    x1: Math.min(w - 1, Math.ceil(Math.max(a.x, b.x) * scale)),
+    y0: Math.max(0, Math.floor(Math.min(a.y, b.y) * scale)),
+    y1: Math.min(h - 1, Math.ceil(Math.max(a.y, b.y) * scale)),
+  }
+}
+
 export function detectWalls(image: HTMLImageElement, options: DetectOptions): Wall[] {
   const { naturalWidth: srcW, naturalHeight: srcH } = image
   if (!srcW || !srcH) return []
@@ -237,6 +260,16 @@ export function detectWalls(image: HTMLImageElement, options: DetectOptions): Wa
     const p = i * 4
     const luminance = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]
     ink[i] = luminance < options.threshold ? 1 : 0
+  }
+
+  // RF-54: las zonas marcadas a mano quedan en blanco antes de buscar
+  // corridas — ni el modo sólido ni el de par de líneas las puede leer.
+  for (const zone of options.ignoreZones ?? []) {
+    const rect = zoneToWorkingRect(zone.a, zone.b, scale, w, h)
+    for (let y = rect.y0; y <= rect.y1; y++) {
+      const rowOffset = y * w
+      for (let x = rect.x0; x <= rect.x1; x++) ink[rowOffset + x] = 0
+    }
   }
 
   const pxPerMeter = options.pxPerMeter * scale

@@ -10,7 +10,7 @@ import {
   type Point,
 } from './plan-model'
 
-export type EditorMode = 'calibrate' | 'draw' | 'contour' | 'openings' | 'erase'
+export type EditorMode = 'calibrate' | 'draw' | 'contour' | 'ignore' | 'openings' | 'erase'
 
 interface PlanEditor2DProps {
   model: PlanModel
@@ -23,6 +23,8 @@ interface PlanEditor2DProps {
   onAddOpening: (wallId: string, offset: number) => void
   onDeleteOpening: (id: string) => void
   onAddContourPoint: (point: Point) => void
+  onAddIgnoreZone: (a: Point, b: Point) => void
+  onDeleteIgnoreZone: (id: string) => void
 }
 
 /** Radio de snap y tolerancia de click, en píxeles de pantalla. */
@@ -40,6 +42,8 @@ export function PlanEditor2D({
   onAddOpening,
   onDeleteOpening,
   onAddContourPoint,
+  onAddIgnoreZone,
+  onDeleteIgnoreZone,
 }: PlanEditor2DProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const layerRef = useRef<SVGGElement>(null)
@@ -48,6 +52,7 @@ export function PlanEditor2D({
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 })
   const [chainStart, setChainStart] = useState<Point | null>(null)
   const [calibrationStart, setCalibrationStart] = useState<Point | null>(null)
+  const [ignoreStart, setIgnoreStart] = useState<Point | null>(null)
   const [cursor, setCursor] = useState<Point | null>(null)
   const [shiftHeld, setShiftHeld] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
@@ -104,6 +109,7 @@ export function PlanEditor2D({
       if (e.key === 'Escape') {
         setChainStart(null)
         setCalibrationStart(null)
+        setIgnoreStart(null)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -118,6 +124,7 @@ export function PlanEditor2D({
   useEffect(() => {
     setChainStart(null)
     setCalibrationStart(null)
+    setIgnoreStart(null)
   }, [mode])
 
   const toPlanPoint = useCallback((clientX: number, clientY: number): Point | null => {
@@ -206,6 +213,20 @@ export function PlanEditor2D({
       return
     }
 
+    if (mode === 'ignore') {
+      // Sin ortogonalidad: dos clicks definen las esquinas opuestas de un
+      // rectángulo libre, no un segmento — forzar ortho lo colapsaría a
+      // ancho o alto cero.
+      const point = resolvePoint(raw, null)
+      if (!ignoreStart) {
+        setIgnoreStart(point)
+      } else {
+        onAddIgnoreZone(ignoreStart, point)
+        setIgnoreStart(null)
+      }
+      return
+    }
+
     if (mode === 'openings') {
       const hit = nearestWall(model, raw, HIT_RADIUS_SCREEN * unit * 2)
       if (hit) onAddOpening(hit.wall.id, hit.offset)
@@ -218,6 +239,11 @@ export function PlanEditor2D({
         onDeleteOpening(openingHit)
         return
       }
+      const zoneHit = findIgnoreZoneAt(model, raw)
+      if (zoneHit) {
+        onDeleteIgnoreZone(zoneHit)
+        return
+      }
       const hit = nearestWall(model, raw, HIT_RADIUS_SCREEN * unit * 2)
       if (hit) onDeleteWall(hit.wall.id)
     }
@@ -227,6 +253,7 @@ export function PlanEditor2D({
     e.preventDefault()
     setChainStart(null)
     setCalibrationStart(null)
+    setIgnoreStart(null)
   }
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -258,6 +285,8 @@ export function PlanEditor2D({
   const preview = chainStart && cursor ? ([chainStart, cursor] as [Point, Point]) : null
   const calibrationPreview =
     calibrationStart && cursor ? ([calibrationStart, cursor] as [Point, Point]) : null
+  const ignorePreview =
+    ignoreStart && cursor ? rectFromCorners(ignoreStart, cursor) : null
 
   return (
     <div
@@ -337,6 +366,36 @@ export function PlanEditor2D({
               )
             })}
 
+            {model.ignoreZones.map((zone) => {
+              const r = rectFromCorners(zone.a, zone.b)
+              return (
+                <rect
+                  key={zone.id}
+                  x={r.x}
+                  y={r.y}
+                  width={r.width}
+                  height={r.height}
+                  fill="oklch(0.5 0.02 30 / 0.35)"
+                  stroke="oklch(0.6 0.03 30)"
+                  strokeWidth={1.5 * unit}
+                  strokeDasharray={`${4 * unit} ${3 * unit}`}
+                />
+              )
+            })}
+
+            {ignorePreview && (
+              <rect
+                x={ignorePreview.x}
+                y={ignorePreview.y}
+                width={ignorePreview.width}
+                height={ignorePreview.height}
+                fill="oklch(0.5 0.02 30 / 0.2)"
+                stroke="oklch(0.6 0.03 30)"
+                strokeWidth={1.5 * unit}
+                strokeDasharray={`${4 * unit} ${3 * unit}`}
+              />
+            )}
+
             {model.exteriorContour.length > 0 && (
               <g>
                 <polygon
@@ -415,6 +474,11 @@ export function PlanEditor2D({
             Marcá el segundo punto
           </span>
         )}
+        {ignoreStart && (
+          <span className="rounded-full border border-border bg-bg/80 px-2.5 py-1 text-[11px] text-fg-muted backdrop-blur">
+            Marcá la esquina opuesta
+          </span>
+        )}
       </div>
 
       <button
@@ -426,6 +490,27 @@ export function PlanEditor2D({
       </button>
     </div>
   )
+}
+
+/** Normaliza dos esquinas cualesquiera a un rectángulo con ancho/alto positivos. */
+function rectFromCorners(a: Point, b: Point): { x: number; y: number; width: number; height: number } {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  }
+}
+
+/** Id de la zona a ignorar bajo el punto, si hay alguna. */
+function findIgnoreZoneAt(model: PlanModel, point: Point): string | null {
+  for (const zone of model.ignoreZones) {
+    const r = rectFromCorners(zone.a, zone.b)
+    if (point.x >= r.x && point.x <= r.x + r.width && point.y >= r.y && point.y <= r.y + r.height) {
+      return zone.id
+    }
+  }
+  return null
 }
 
 /** Id de la abertura bajo el punto, si hay alguna. */
