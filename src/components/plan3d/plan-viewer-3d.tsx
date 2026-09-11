@@ -1,18 +1,67 @@
 'use client'
 
 import { useMemo } from 'react'
+import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid } from '@react-three/drei'
-import { buildSlab, buildWallPieces, type PlanModel } from './plan-model'
+import { buildSlab, buildWallPieces, type PlanModel, type SlabResult } from './plan-model'
+
+function slabRadius(slab: SlabResult | null): number {
+  if (!slab) return 10
+  if (slab.kind === 'box') return Math.max(6, Math.hypot(slab.size[0], slab.size[2]) * 0.8)
+  const xs = slab.polygon.points.map((p) => p[0])
+  const zs = slab.polygon.points.map((p) => p[1])
+  const width = Math.max(...xs) - Math.min(...xs)
+  const depth = Math.max(...zs) - Math.min(...zs)
+  return Math.max(6, Math.hypot(width, depth) * 0.8)
+}
+
+/** Losa: caja simple (fallback) o el prisma extruido del contorno trazado a mano. */
+function SlabMesh({ slab }: { slab: SlabResult }) {
+  const geometry = useMemo(() => {
+    if (slab.kind !== 'polygon') return null
+    // El Shape se arma en (x, -z): rotateX(-90°) invierte el eje Y del
+    // shape al mapearlo a Z de mundo, así que hay que pre-invertirlo acá
+    // para terminar en el mismo signo de Z que usa buildWallPieces.
+    // Verificado numéricamente — ver commit.
+    const [first, ...rest] = slab.polygon.points
+    const shape = new THREE.Shape()
+    shape.moveTo(first[0], -first[1])
+    for (const [x, z] of rest) shape.lineTo(x, -z)
+    shape.closePath()
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: slab.polygon.thickness,
+      bevelEnabled: false,
+      curveSegments: 1,
+    })
+    // El Shape vive en XY; rotado -90° en X para acostarlo como piso en XZ,
+    // con el espesor creciendo hacia abajo (y negativo) en vez de para arriba.
+    geo.rotateX(-Math.PI / 2)
+    geo.translate(0, -slab.polygon.thickness, 0)
+    return geo
+  }, [slab])
+
+  if (slab.kind === 'box') {
+    return (
+      <mesh position={slab.position} receiveShadow>
+        <boxGeometry args={slab.size} />
+        <meshStandardMaterial color="#2a2d38" roughness={0.95} />
+      </mesh>
+    )
+  }
+
+  if (!geometry) return null
+  return (
+    <mesh geometry={geometry} receiveShadow>
+      <meshStandardMaterial color="#2a2d38" roughness={0.95} />
+    </mesh>
+  )
+}
 
 export function PlanViewer3D({ model }: { model: PlanModel }) {
   const pieces = useMemo(() => buildWallPieces(model), [model])
   const slab = useMemo(() => buildSlab(model), [model])
-
-  const radius = useMemo(() => {
-    if (!slab) return 10
-    return Math.max(6, Math.hypot(slab.size[0], slab.size[2]) * 0.8)
-  }, [slab])
+  const radius = useMemo(() => slabRadius(slab), [slab])
 
   if (pieces.length === 0) {
     return (
@@ -43,12 +92,7 @@ export function PlanViewer3D({ model }: { model: PlanModel }) {
           shadow-mapSize={[1024, 1024]}
         />
 
-        {slab && (
-          <mesh position={slab.position} receiveShadow>
-            <boxGeometry args={slab.size} />
-            <meshStandardMaterial color="#2a2d38" roughness={0.95} />
-          </mesh>
-        )}
+        {slab && <SlabMesh slab={slab} />}
 
         {pieces.map((piece) => (
           <mesh

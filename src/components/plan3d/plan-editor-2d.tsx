@@ -10,7 +10,7 @@ import {
   type Point,
 } from './plan-model'
 
-export type EditorMode = 'calibrate' | 'draw' | 'openings' | 'erase'
+export type EditorMode = 'calibrate' | 'draw' | 'contour' | 'openings' | 'erase'
 
 interface PlanEditor2DProps {
   model: PlanModel
@@ -22,6 +22,7 @@ interface PlanEditor2DProps {
   onDeleteWall: (id: string) => void
   onAddOpening: (wallId: string, offset: number) => void
   onDeleteOpening: (id: string) => void
+  onAddContourPoint: (point: Point) => void
 }
 
 /** Radio de snap y tolerancia de click, en píxeles de pantalla. */
@@ -38,6 +39,7 @@ export function PlanEditor2D({
   onDeleteWall,
   onAddOpening,
   onDeleteOpening,
+  onAddContourPoint,
 }: PlanEditor2DProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const layerRef = useRef<SVGGElement>(null)
@@ -197,6 +199,13 @@ export function PlanEditor2D({
       return
     }
 
+    if (mode === 'contour') {
+      // Sólo snap a extremos de muro, sin forzar ortogonalidad: el
+      // contorno puede tener tramos en ángulo (una ochava, por ejemplo).
+      onAddContourPoint(resolvePoint(raw, null))
+      return
+    }
+
     if (mode === 'openings') {
       const hit = nearestWall(model, raw, HIT_RADIUS_SCREEN * unit * 2)
       if (hit) onAddOpening(hit.wall.id, hit.offset)
@@ -327,6 +336,27 @@ export function PlanEditor2D({
                 />
               )
             })}
+
+            {model.exteriorContour.length > 0 && (
+              <g>
+                <polygon
+                  points={model.exteriorContour.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill="oklch(0.75 0.15 85 / 0.08)"
+                  stroke="oklch(0.75 0.15 85)"
+                  strokeWidth={2 * unit}
+                  strokeDasharray={`${5 * unit} ${5 * unit}`}
+                />
+                {model.exteriorContour.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={3 * unit}
+                    fill="oklch(0.75 0.15 85)"
+                  />
+                ))}
+              </g>
+            )}
 
             {preview && (
               <line

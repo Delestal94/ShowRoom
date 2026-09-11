@@ -10,6 +10,7 @@ import { detectWalls } from './wall-detector'
 import {
   boundingAreaM2,
   canPlaceOpening,
+  contourAreaM2,
   createId,
   distance,
   emptyPlan,
@@ -27,6 +28,7 @@ const AUTOSAVE_DEBOUNCE_MS = 2000
 const TOOLS: { id: EditorMode; label: string; hint: string }[] = [
   { id: 'calibrate', label: 'Calibrar', hint: 'Marcá dos puntos sobre una medida conocida del plano.' },
   { id: 'draw', label: 'Trazar muros', hint: 'Click para empezar, click para cerrar cada tramo. Esc corta la cadena.' },
+  { id: 'contour', label: 'Contorno', hint: 'Click en cada esquina del perímetro exterior, en orden. Define la losa real.' },
   { id: 'openings', label: 'Aberturas', hint: 'Click sobre un muro para colocar la abertura elegida.' },
   { id: 'erase', label: 'Borrar', hint: 'Click sobre un muro o una abertura para eliminarla.' },
 ]
@@ -37,7 +39,13 @@ type PublishStatus = 'idle' | 'exporting' | 'uploading' | 'publishing' | 'publis
 /** Lo que persiste en `floor_plans.model_json` — todo el estado editable salvo la imagen, que vive en `sourceCdnUrl`. */
 type PersistedModel = Pick<
   PlanModel,
-  'walls' | 'openings' | 'defaultWallHeight' | 'defaultWallThickness' | 'imageWidth' | 'imageHeight'
+  | 'walls'
+  | 'openings'
+  | 'exteriorContour'
+  | 'defaultWallHeight'
+  | 'defaultWallThickness'
+  | 'imageWidth'
+  | 'imageHeight'
 >
 
 interface PlanStudioProps {
@@ -63,6 +71,7 @@ export function PlanStudio({
     pxPerMeter: initialPxPerMeter,
     walls: initialModelJson?.walls ?? [],
     openings: initialModelJson?.openings ?? [],
+    exteriorContour: initialModelJson?.exteriorContour ?? [],
     defaultWallHeight: initialModelJson?.defaultWallHeight ?? 2.6,
     defaultWallThickness: initialModelJson?.defaultWallThickness ?? 0.15,
     imageWidth: initialModelJson?.imageWidth ?? 0,
@@ -164,6 +173,7 @@ export function PlanStudio({
       const persisted: PersistedModel = {
         walls: model.walls,
         openings: model.openings,
+        exteriorContour: model.exteriorContour,
         defaultWallHeight: model.defaultWallHeight,
         defaultWallThickness: model.defaultWallThickness,
         imageWidth: model.imageWidth,
@@ -193,6 +203,7 @@ export function PlanStudio({
   }, [
     model.walls,
     model.openings,
+    model.exteriorContour,
     model.defaultWallHeight,
     model.defaultWallThickness,
     model.pxPerMeter,
@@ -292,6 +303,11 @@ export function PlanStudio({
 
   const deleteOpening = (id: string) =>
     update((prev) => ({ ...prev, openings: prev.openings.filter((o) => o.id !== id) }))
+
+  const addContourPoint = (point: Point) =>
+    update((prev) => ({ ...prev, exteriorContour: [...prev.exteriorContour, point] }))
+
+  const clearContour = () => update((prev) => ({ ...prev, exteriorContour: [] }))
 
   const applyDefaultsToAll = () =>
     update((prev) => ({
@@ -479,6 +495,7 @@ export function PlanStudio({
               onDeleteWall={deleteWall}
               onAddOpening={addOpening}
               onDeleteOpening={deleteOpening}
+              onAddContourPoint={addContourPoint}
             />
           )}
           {pane !== '2d' && <PlanViewer3D model={model} />}
@@ -585,6 +602,36 @@ export function PlanStudio({
                   >
                     Aplicar a todos los muros
                   </button>
+                </div>
+              </Panel>
+
+              <Panel title="Contorno exterior">
+                <div className="space-y-3">
+                  <p className="text-xs text-fg-muted">
+                    Define la losa real (RF-63): sin esto, el piso queda al rectángulo que
+                    contiene los muros, y en una planta en L o con retiros sobra piso en el aire.
+                  </p>
+                  <Metric label="Puntos" value={String(model.exteriorContour.length)} />
+                  {model.exteriorContour.length >= 3 && (
+                    <Metric label="Superficie del contorno" value={`${contourAreaM2(model).toFixed(1)} m²`} />
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMode('contour')}
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                    >
+                      Trazar contorno
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearContour}
+                      disabled={model.exteriorContour.length === 0}
+                      className="text-sm text-danger underline-offset-4 hover:underline disabled:opacity-40"
+                    >
+                      Borrar contorno
+                    </button>
+                  </div>
                 </div>
               </Panel>
 

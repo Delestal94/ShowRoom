@@ -29,9 +29,27 @@ export async function exportPlanToGlb(model: PlanModel, name: string): Promise<B
   const slabMaterial = new THREE.MeshStandardMaterial({ color: 0x8a8a86, roughness: 0.95 })
 
   const slab = buildSlab(model)
-  if (slab) {
+  if (slab?.kind === 'box') {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...slab.size), slabMaterial)
     mesh.position.set(...slab.position)
+    mesh.name = 'losa'
+    group.add(mesh)
+  } else if (slab?.kind === 'polygon') {
+    // Mismo shape (x, -z) + rotateX(-90°) + translate que el visor, para
+    // que el GLB publicado coincida con lo que se ve en el editor.
+    const [first, ...rest] = slab.polygon.points
+    const shape = new THREE.Shape()
+    shape.moveTo(first[0], -first[1])
+    for (const [x, z] of rest) shape.lineTo(x, -z)
+    shape.closePath()
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: slab.polygon.thickness,
+      bevelEnabled: false,
+      curveSegments: 1,
+    })
+    geometry.rotateX(-Math.PI / 2)
+    geometry.translate(0, -slab.polygon.thickness, 0)
+    const mesh = new THREE.Mesh(geometry, slabMaterial)
     mesh.name = 'losa'
     group.add(mesh)
   }

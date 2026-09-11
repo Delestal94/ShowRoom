@@ -43,6 +43,14 @@ export interface PlanModel {
   pxPerMeter: number | null
   walls: Wall[]
   openings: Opening[]
+  /**
+   * Perímetro exterior trazado a mano (RF-55), en orden, se asume cerrado
+   * (el último punto vuelve a unir con el primero). Es lo que define la
+   * losa real — sin esto, la losa cae al rectángulo envolvente de los
+   * muros, que miente en cualquier planta no rectangular (en L, con
+   * retiros, con patio interno).
+   */
+  exteriorContour: Point[]
   defaultWallHeight: number
   defaultWallThickness: number
 }
@@ -63,6 +71,7 @@ export function emptyPlan(): PlanModel {
     pxPerMeter: null,
     walls: [],
     openings: [],
+    exteriorContour: [],
     defaultWallHeight: 2.6,
     defaultWallThickness: 0.15,
   }
@@ -135,6 +144,23 @@ export function boundingAreaM2(model: PlanModel): number {
   const w = (Math.max(...xs) - Math.min(...xs)) / model.pxPerMeter
   const h = (Math.max(...ys) - Math.min(...ys)) / model.pxPerMeter
   return w * h
+}
+
+/**
+ * Superficie real del contorno trazado a mano, por la fórmula del área de
+ * Gauss (shoelace) — exacta para cualquier polígono, a diferencia de
+ * boundingAreaM2. Devuelve 0 si todavía no hay contorno (menos de 3 puntos).
+ */
+export function contourAreaM2(model: PlanModel): number {
+  if (!model.pxPerMeter || model.exteriorContour.length < 3) return 0
+  const pts = model.exteriorContour
+  let sum = 0
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]
+    const b = pts[(i + 1) % pts.length]
+    sum += a.x * b.y - b.x * a.y
+  }
+  return Math.abs(sum) / 2 / (model.pxPerMeter * model.pxPerMeter)
 }
 
 /** Proyecta un punto sobre el segmento del muro y devuelve el offset en metros. */
@@ -312,16 +338,49 @@ export function buildWallPieces(model: PlanModel): WallPiece[] {
   return pieces
 }
 
-export interface SlabSpec {
-  position: [number, number, number]
-  size: [number, number, number]
+/** Espesor de losa por defecto (RF-33). */
+const SLAB_THICKNESS = 0.12
+
+export interface SlabPolygon {
+  /** (x, z) en metros, mismo origen centrado que WallPiece. Se asume cerrado. */
+  points: Array<[number, number]>
+  thickness: number
 }
 
-/** Losa bajo los muros, del tamaño de su bounding box más un margen. */
-export function buildSlab(model: PlanModel): SlabSpec | null {
-  if (!model.pxPerMeter || model.walls.length === 0) return null
+export type SlabResult =
+  | { kind: 'polygon'; polygon: SlabPolygon }
+  | { kind: 'box'; position: [number, number, number]; size: [number, number, number] }
+
+/**
+ * Losa real, a partir del contorno exterior trazado a mano (RF-63). Si
+ * todavía no se trazó ningún contorno, cae a la losa por bounding box de
+ * los muros — peor en plantas no rectangulares, pero evita dejar un plano
+ * viejo (guardado antes de que existiera esta herramienta) sin piso.
+ */
+export function buildSlab(model: PlanModel): SlabResult | null {
+  if (!model.pxPerMeter) return null
+
+  const polygon = buildSlabPolygon(model)
+  if (polygon) return { kind: 'polygon', polygon }
+
+  return buildSlabBoundingBox(model)
+}
+
+function buildSlabPolygon(model: PlanModel): SlabPolygon | null {
+  if (!model.pxPerMeter || model.exteriorContour.length < 3) return null
 
   const scale = model.pxPerMeter
+  const center = planCenter(model)
+  const points = model.exteriorContour.map(
+    (p): [number, number] => [(p.x - center.x) / scale, (p.y - center.y) / scale]
+  )
+  return { points, thickness: SLAB_THICKNESS }
+}
+
+function buildSlabBoundingBox(model: PlanModel): SlabResult | null {
+  if (model.walls.length === 0) return null
+
+  const scale = model.pxPerMeter!
   const center = planCenter(model)
   const xs = model.walls.flatMap((w) => [w.a.x, w.b.x])
   const ys = model.walls.flatMap((w) => [w.a.y, w.b.y])
@@ -331,5 +390,5 @@ export function buildSlab(model: PlanModel): SlabSpec | null {
   const cx = ((Math.min(...xs) + Math.max(...xs)) / 2 - center.x) / scale
   const cz = ((Math.min(...ys) + Math.max(...ys)) / 2 - center.y) / scale
 
-  return { position: [cx, -0.06, cz], size: [width, 0.12, depth] }
+  return { kind: 'box', position: [cx, -0.06, cz], size: [width, SLAB_THICKNESS, depth] }
 }
