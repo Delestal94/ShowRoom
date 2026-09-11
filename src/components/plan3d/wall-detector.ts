@@ -1,10 +1,22 @@
 /**
  * Detección de muros ortogonales sobre un plano rasterizado.
  *
- * Busca tiras de tinta largas y finas: binariza la imagen y agrupa corridas de
- * píxeles oscuros contiguas fila por fila (y después columna por columna). Una
- * corrida larga y de poco espesor es un muro; una mancha ancha es un hatch, un
- * bloque de texto o una carátula, y se descarta por espesor.
+ * Dos estrategias, combinadas:
+ *
+ * 1. **Muro sólido**: una tira de tinta larga, fina y continua (plano
+ *    escaneado, hatching relleno). Se agrupan corridas de píxeles oscuros
+ *    contiguas fila por fila (y columna por columna); una corrida larga y de
+ *    espesor razonable es un muro, una mancha ancha es un hatch, un bloque de
+ *    texto o una carátula, y se descarta por espesor.
+ *
+ * 2. **Par de líneas paralelas** (RF-50): un muro exportado desde CAD casi
+ *    nunca es una mancha — son dos líneas finas (el eje de cada cara del
+ *    muro) con el interior en blanco. Sin esta segunda pasada, cada línea se
+ *    leía como su propio "muro" de un par de milímetros, o directamente se
+ *    descartaba por quedar debajo del piso de espesor que filtra cotas. Acá
+ *    se buscan líneas de un solo trazo (1 a pocos píxeles), y se colapsan en
+ *    un único muro los pares que corren paralelos, se solapan en largo, y
+ *    cuya separación cae dentro del rango de espesor de muro configurado.
  *
  * Los umbrales se expresan en metros, no en píxeles, así que el detector
  * necesita el plano ya calibrado: sin escala no hay forma de distinguir un muro
@@ -131,6 +143,74 @@ function groupRuns(
   return closed
 }
 
+interface PairedLine {
+  start: number
+  end: number
+  /** Fila/columna del eje medio entre ambas líneas. */
+  center: number
+  /** De cara exterior a cara exterior — la mejor aproximación al espesor real del muro. */
+  thicknessPx: number
+}
+
+/**
+ * Empareja líneas finas paralelas (mismo eje: ambas de la pasada horizontal
+ * o ambas de la vertical) separadas por un hueco en blanco cuyo tamaño cae
+ * en el rango de espesor de muro — eso es lo que distingue un muro de doble
+ * línea de dos cotas paralelas sueltas, que rara vez están exactamente a
+ * distancia de espesor de muro entre sí.
+ *
+ * Greedy simple: por cada línea sin usar, se empareja con la más cercana en
+ * espesor dentro del rango válido. No es óptimo global, pero para la
+ * cantidad de líneas de un plano típico el resultado es indistinguible de
+ * uno y es O(n²) trivial de mantener.
+ */
+function pairParallelLines(groups: Group[], minGapPx: number, maxGapPx: number): PairedLine[] {
+  const sorted = [...groups].sort((a, b) => a.from + a.to - (b.from + b.to))
+  const used = new Set<Group>()
+  const result: PairedLine[] = []
+
+  for (let i = 0; i < sorted.length; i++) {
+    const g1 = sorted[i]
+    if (used.has(g1)) continue
+
+    let best: Group | null = null
+    let bestOuterToOuter = 0
+    let bestGapDiff = Infinity
+
+    for (let j = i + 1; j < sorted.length; j++) {
+      const g2 = sorted[j]
+      if (used.has(g2) || g2.from <= g1.to) continue
+
+      const outerToOuter = g2.to - g1.from + 1
+      if (outerToOuter < minGapPx || outerToOuter > maxGapPx) continue
+
+      const overlap = Math.min(g1.end, g2.end) - Math.max(g1.start, g2.start) + 1
+      const shorter = Math.min(g1.end - g1.start, g2.end - g2.start) + 1
+      if (overlap <= 0 || overlap < shorter * 0.5) continue
+
+      const gapDiff = Math.abs(outerToOuter - (minGapPx + maxGapPx) / 2)
+      if (gapDiff < bestGapDiff) {
+        best = g2
+        bestOuterToOuter = outerToOuter
+        bestGapDiff = gapDiff
+      }
+    }
+
+    if (best) {
+      used.add(g1)
+      used.add(best)
+      result.push({
+        start: Math.max(g1.start, best.start),
+        end: Math.min(g1.end, best.end),
+        center: ((g1.from + g1.to) / 2 + (best.from + best.to) / 2) / 2,
+        thicknessPx: bestOuterToOuter,
+      })
+    }
+  }
+
+  return result
+}
+
 export function detectWalls(image: HTMLImageElement, options: DetectOptions): Wall[] {
   const { naturalWidth: srcW, naturalHeight: srcH } = image
   if (!srcW || !srcH) return []
@@ -176,6 +256,7 @@ export function detectWalls(image: HTMLImageElement, options: DetectOptions): Wa
 
   const walls: Wall[] = []
 
+  // Pasada 1: muro sólido (mancha rellena).
   for (const g of groupRuns(horizontalRuns, minRun, minThickness, maxThickness)) {
     const y = (g.from + g.to) / 2 / scale
     walls.push({
@@ -194,6 +275,38 @@ export function detectWalls(image: HTMLImageElement, options: DetectOptions): Wa
       a: { x, y: g.start / scale },
       b: { x, y: g.end / scale },
       thickness: (g.to - g.from + 1) / pxPerMeter,
+      height: options.wallHeight,
+    })
+  }
+
+  // Pasada 2: par de líneas finas paralelas (muro de CAD-a-imagen, RF-50).
+  // El rango de espesor de línea es independiente de minThickness/maxThickness
+  // (que ahí definen el espesor del *muro*, no de cada línea que lo dibuja):
+  // una línea de un solo trazo mide un puñado de píxeles de ancho sin
+  // importar la escala del plano — ligarlo a minThickness (como en un
+  // intento anterior) lo dejaba en un hueco sin cubrir apenas minThickness
+  // bajaba de ~7px, que es un caso común, no raro.
+  const THIN_LINE_MAX_PX = 6
+  const thinGroupsH = groupRuns(horizontalRuns, minRun, 1, THIN_LINE_MAX_PX)
+  for (const p of pairParallelLines(thinGroupsH, minThickness, maxThickness)) {
+    const y = p.center / scale
+    walls.push({
+      id: createId('wall'),
+      a: { x: p.start / scale, y },
+      b: { x: p.end / scale, y },
+      thickness: p.thicknessPx / pxPerMeter,
+      height: options.wallHeight,
+    })
+  }
+
+  const thinGroupsV = groupRuns(verticalRuns, minRun, 1, THIN_LINE_MAX_PX)
+  for (const p of pairParallelLines(thinGroupsV, minThickness, maxThickness)) {
+    const x = p.center / scale
+    walls.push({
+      id: createId('wall'),
+      a: { x, y: p.start / scale },
+      b: { x, y: p.end / scale },
+      thickness: p.thicknessPx / pxPerMeter,
       height: options.wallHeight,
     })
   }

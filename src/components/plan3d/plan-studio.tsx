@@ -571,7 +571,8 @@ export function PlanStudio({
                     {detecting ? 'Detectando…' : 'Detectar muros'}
                   </Button>
                   <p className="text-xs text-fg-subtle">
-                    Sólo encuentra muros horizontales y verticales. Reemplaza el trazado actual.
+                    Encuentra muros de mancha sólida y de doble línea (CAD-a-imagen), sólo
+                    horizontales y verticales. Reemplaza el trazado actual.
                   </p>
                 </div>
               </Panel>
