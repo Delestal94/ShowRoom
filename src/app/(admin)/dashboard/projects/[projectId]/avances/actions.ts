@@ -15,6 +15,7 @@ import {
   markNotified,
 } from '@/modules/construction/construction-service'
 import { send, buildProgressEmail, isEmailConfigured } from '@/modules/notifications/email'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export interface UpdateState {
   error?: string
@@ -31,6 +32,7 @@ function parsePercent(raw: string): number | undefined {
 
 async function assertAccess(projectId: string) {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) throw new Error('FORBIDDEN')
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) throw new Error('NOT_FOUND')
   return { tenant, project }

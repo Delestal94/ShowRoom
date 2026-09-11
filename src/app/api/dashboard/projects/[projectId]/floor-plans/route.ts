@@ -7,6 +7,8 @@ import {
   listFloorPlansByProject,
   type FloorPlanSourceKind,
 } from '@/modules/floor-plans/floor-plan-service'
+import { getPublicAssetUrl, verifyUploadedAsset } from '@/modules/storage/supabase-client'
+import { listBuildings } from '@/modules/buildings/building-service'
 
 const VALID_SOURCE_KINDS: FloorPlanSourceKind[] = ['image', 'pdf']
 
@@ -47,7 +49,7 @@ export async function POST(
     return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
 
-  const { name, level, sourceStorageKey, sourceCdnUrl, sourceKind } = await request
+  const { name, level, buildingId, sourceStorageKey, sourceCdnUrl, sourceKind } = await request
     .json()
     .catch(() => ({}))
 
@@ -57,13 +59,31 @@ export async function POST(
   if (sourceKind && !VALID_SOURCE_KINDS.includes(sourceKind)) {
     return NextResponse.json({ error: 'Invalid sourceKind' }, { status: 400 })
   }
+  if (buildingId) {
+    const buildings = await listBuildings(tenant.tenantId, params.projectId)
+    if (!buildings.some((building) => building.id === buildingId)) {
+      return NextResponse.json({ error: 'Building not found' }, { status: 400 })
+    }
+  }
+  if (sourceStorageKey) {
+    const validAsset = await verifyUploadedAsset({
+      tenantId: tenant.tenantId,
+      projectId: params.projectId,
+      kind: 'image',
+      storageKey: String(sourceStorageKey),
+    })
+    if (!validAsset) {
+      return NextResponse.json({ error: 'Uploaded source image is missing or invalid' }, { status: 400 })
+    }
+  }
 
   try {
     const plan = await createFloorPlan(tenant.tenantId, params.projectId, {
       name,
       level: level !== undefined && level !== null ? Number(level) : undefined,
+      buildingId: buildingId || undefined,
       sourceStorageKey,
-      sourceCdnUrl,
+      sourceCdnUrl: sourceStorageKey ? getPublicAssetUrl(String(sourceStorageKey)) : sourceCdnUrl,
       sourceKind,
     })
     return NextResponse.json({ floorPlan: plan }, { status: 201 })

@@ -7,7 +7,20 @@
 
 export type MembershipRole = 'tenant_admin' | 'editor' | 'broker' | (string & {})
 
-/** tenant_admin y editor pueden trazar/editar planos; broker sólo puede verlos publicados. */
-export function canEditFloorPlans(role: string): boolean {
+/** Content and inventory affect the public storefront. */
+export function canManageContent(role: string): boolean {
   return role === 'tenant_admin' || role === 'editor'
+}
+
+/** tenant_admin y editor pueden trazar/editar planos; broker sólo puede verlos publicados. */
+export const canEditFloorPlans = canManageContent
+
+/** Brokers work leads, but may not alter the project's public content. */
+export function canManageCrm(role: string): boolean {
+  return role === 'tenant_admin' || role === 'editor' || role === 'broker'
+}
+
+/** Billing and organisation-wide settings have financial/security impact. */
+export function canManageTenant(role: string): boolean {
+  return role === 'tenant_admin'
 }

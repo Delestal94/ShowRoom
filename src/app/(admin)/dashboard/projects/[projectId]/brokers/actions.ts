@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { createBrokerLink, deleteBrokerLink } from '@/modules/brokers/broker-service'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export interface BrokerState {
   error?: string
@@ -20,6 +21,7 @@ export async function createBrokerLinkAction(
   if (brokerName.length > 120) return { error: 'El nombre es demasiado largo.' }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar links de broker.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 
@@ -39,6 +41,7 @@ export async function deleteBrokerLinkAction(
   linkId: string
 ): Promise<BrokerState> {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar links de broker.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 

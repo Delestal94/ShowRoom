@@ -8,10 +8,13 @@ import {
   createUnitsBulk,
   updateUnit,
   deleteUnit,
+  getUnit,
 } from '@/modules/units/unit-service'
 import { UNIT_STATUSES, type UnitStatus } from '@/modules/units/unit-constants'
 import { checkCanCreate } from '@/modules/billing/billing-service'
 import { invalidateProject } from '@/modules/public/cached-storefront'
+import { canManageContent } from '@/modules/tenancy/permissions'
+import { listBuildings } from '@/modules/buildings/building-service'
 
 export interface UnitActionState {
   error?: string
@@ -60,9 +63,29 @@ function normalizeStatus(raw: string): UnitStatus {
 /** Confirms the project belongs to the signed-in tenant before any write. */
 async function assertProjectAccess(projectId: string) {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) throw new Error('FORBIDDEN')
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) throw new Error('NOT_FOUND')
   return { tenant, project }
+}
+
+function commonAttrs(input: { cochera: boolean; baulera: boolean }, existing?: unknown) {
+  const attrs = existing && typeof existing === 'object' && !Array.isArray(existing)
+    ? { ...(existing as Record<string, unknown>) }
+    : {}
+  if (input.cochera) attrs.cochera = true
+  else delete attrs.cochera
+  if (input.baulera) attrs.baulera = true
+  else delete attrs.baulera
+  return attrs
+}
+
+/** A unit may only point at a tower from this project and tenant. */
+async function resolveBuildingId(tenantId: string, projectId: string, raw: string | undefined) {
+  const buildingId = raw?.trim()
+  if (!buildingId) return null
+  const buildings = await listBuildings(tenantId, projectId)
+  return buildings.some((building) => building.id === buildingId) ? buildingId : undefined
 }
 
 /**
@@ -91,6 +114,8 @@ export async function createUnitAction(
     return { error: 'No tenés acceso a este proyecto.' }
   }
   const tenant = ctx.tenant
+  const buildingId = await resolveBuildingId(tenant.tenantId, projectId, String(formData.get('buildingId') ?? ''))
+  if (buildingId === undefined) return { error: 'La torre elegida no pertenece a este proyecto.' }
 
   const limitError = await checkCanCreate(tenant.tenantId, 'unit')
   if (limitError) return { error: limitError }
@@ -98,6 +123,7 @@ export async function createUnitAction(
   try {
     await createUnit(tenant.tenantId, projectId, {
       code,
+      buildingId,
       floor: parseInteger(String(formData.get('floor') ?? '')),
       m2: parseDecimal(String(formData.get('m2') ?? '')),
       price: parseDecimal(String(formData.get('price') ?? '')),
@@ -105,6 +131,10 @@ export async function createUnitAction(
       orientation: String(formData.get('orientation') ?? '').trim() || undefined,
       bedrooms: parseInteger(String(formData.get('bedrooms') ?? '')),
       status: normalizeStatus(String(formData.get('status') ?? '')),
+      attrsJson: commonAttrs({
+        cochera: formData.get('cochera') === 'on',
+        baulera: formData.get('baulera') === 'on',
+      }),
     })
   } catch (error) {
     console.error('Error creating unit:', error)
@@ -127,6 +157,9 @@ export async function updateUnitAction(
     orientation: string
     bedrooms: string
     status: string
+    buildingId: string
+    cochera: boolean
+    baulera: boolean
   }
 ): Promise<UnitActionState> {
   if (!data.code.trim()) return { error: 'El código no puede quedar vacío.' }
@@ -138,10 +171,15 @@ export async function updateUnitAction(
     return { error: 'No tenés acceso a este proyecto.' }
   }
   const tenant = ctx.tenant
+  const buildingId = await resolveBuildingId(tenant.tenantId, projectId, data.buildingId)
+  if (buildingId === undefined) return { error: 'La torre elegida no pertenece a este proyecto.' }
+  const current = await getUnit(tenant.tenantId, unitId)
+  if (!current || current.projectId !== projectId) return { error: 'No encontramos esa unidad.' }
 
   try {
     await updateUnit(tenant.tenantId, unitId, {
       code: data.code.trim(),
+      buildingId,
       floor: parseInteger(data.floor),
       m2: parseDecimal(data.m2),
       price: parseDecimal(data.price),
@@ -149,6 +187,7 @@ export async function updateUnitAction(
       orientation: data.orientation.trim(),
       bedrooms: parseInteger(data.bedrooms),
       status: normalizeStatus(data.status),
+      attrsJson: commonAttrs(data, current.attrsJson),
     } as any)
   } catch (error) {
     console.error('Error updating unit:', error)

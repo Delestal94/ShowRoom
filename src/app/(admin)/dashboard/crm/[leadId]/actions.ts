@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { updateLead, addLeadNote } from '@/modules/leads/lead-service'
+import { canManageCrm } from '@/modules/tenancy/permissions'
 
 export interface LeadState {
   error?: string
@@ -19,6 +20,7 @@ export async function setLeadStatusAction(
   }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageCrm(tenant.role)) return { error: 'Tu rol no puede gestionar leads.' }
   const updated = await updateLead(tenant.tenantId, leadId, { status: status as any })
   if (!updated) return { error: 'No encontramos ese lead.' }
 
@@ -37,6 +39,7 @@ export async function addNoteAction(
   if (note.length > 2000) return { error: 'La nota es demasiado larga.' }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageCrm(tenant.role)) return { error: 'Tu rol no puede gestionar leads.' }
   const activity = await addLeadNote(tenant.tenantId, leadId, note)
   if (!activity) return { error: 'No encontramos ese lead.' }
 

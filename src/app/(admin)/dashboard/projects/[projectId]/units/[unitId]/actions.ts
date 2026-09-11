@@ -5,6 +5,7 @@ import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getTour, deleteTour } from '@/modules/tours/tour-service'
 import { getProject } from '@/modules/projects/project-service'
 import { invalidateProject } from '@/modules/public/cached-storefront'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export async function deleteTourAction(
   projectId: string,
@@ -12,6 +13,7 @@ export async function deleteTourAction(
   tourId: string
 ): Promise<{ error?: string }> {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede borrar contenido.' }
 
   // getTour is tenant-scoped, so a tour id from another tenant resolves to
   // nothing and never reaches the delete.

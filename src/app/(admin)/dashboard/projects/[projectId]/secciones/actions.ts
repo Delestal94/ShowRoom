@@ -7,6 +7,7 @@ import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { withTenant } from '@/server/db/tenant-db'
 import { projects } from '@/server/db/schema'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export interface SectionsState {
   error?: string
@@ -47,6 +48,7 @@ export async function updateSectionsAction(
   formData: FormData
 ): Promise<SectionsState> {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar secciones.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 

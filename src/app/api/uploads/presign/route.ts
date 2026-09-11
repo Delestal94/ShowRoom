@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
-import { generateUploadUrl, createBucketIfNotExists } from '@/modules/storage/supabase-client'
+import {
+  generateUploadUrl,
+  createBucketIfNotExists,
+  isAllowedUpload,
+  UPLOAD_RULES,
+  type UploadKind,
+} from '@/modules/storage/supabase-client'
 import { getProject } from '@/modules/projects/project-service'
-
-const MAX_SIZES: Record<string, number> = {
-  'glb-model': 50 * 1024 * 1024, // 50MB
-  '360': 100 * 1024 * 1024, // 100MB
-  image: 100 * 1024 * 1024, // 100MB
-  'drone-video': 500 * 1024 * 1024, // 500MB
-}
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export async function POST(request: Request) {
   // The tenant comes from the signed-in session, never from the request
@@ -21,17 +21,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { projectId, tourKind, fileName } = await request.json().catch(() => ({}))
+  const { projectId, tourKind, fileName, mimeType, fileSize } = await request.json().catch(() => ({}))
 
-  if (!projectId || !tourKind || !fileName) {
+  if (!projectId || !tourKind || !fileName || !mimeType || fileSize === undefined) {
     return NextResponse.json(
       { error: 'Missing required fields: projectId, tourKind, fileName' },
       { status: 400 }
     )
   }
 
-  if (!(tourKind in MAX_SIZES)) {
+  if (!(tourKind in UPLOAD_RULES)) {
     return NextResponse.json({ error: 'Invalid tour kind' }, { status: 400 })
+  }
+  if (!canManageContent(tenant.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  if (!isAllowedUpload(tourKind as UploadKind, String(fileName), String(mimeType), Number(fileSize))) {
+    return NextResponse.json({ error: 'File type, extension, or size is not allowed for this upload.' }, { status: 400 })
   }
 
   const project = await getProject(tenant.tenantId, projectId)
@@ -46,14 +52,14 @@ export async function POST(request: Request) {
       tenantId: tenant.tenantId,
       projectId,
       fileName,
-      fileType: tourKind as 'glb' | '360' | 'video' | 'image',
+      fileType: tourKind as UploadKind,
     })
 
     return NextResponse.json({
       presignedUrl: uploadUrl,
       storageKey,
       cdnUrl,
-      maxSize: MAX_SIZES[tourKind],
+      maxSize: UPLOAD_RULES[tourKind as UploadKind].maxSize,
     })
   } catch (error) {
     console.error('Error generating presigned URL:', error)

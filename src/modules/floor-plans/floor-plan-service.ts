@@ -105,7 +105,11 @@ export async function publishFloorPlan(
 ) {
   return withTenant(tenantId, async (tx) => {
     const plan = await tx.query.floorPlans.findFirst({
-      where: and(eq(floorPlans.id, planId), eq(floorPlans.tenantId, tenantId)),
+      where: and(
+        eq(floorPlans.id, planId),
+        eq(floorPlans.tenantId, tenantId),
+        eq(floorPlans.projectId, data.projectId)
+      ),
     })
     if (!plan) return null
 

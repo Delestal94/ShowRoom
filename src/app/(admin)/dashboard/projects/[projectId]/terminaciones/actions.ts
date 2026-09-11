@@ -5,6 +5,7 @@ import { invalidateProject } from '@/modules/public/cached-storefront'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { createFinish, deleteFinish } from '@/modules/finishes/finish-service'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export interface FinishState {
   error?: string
@@ -26,6 +27,7 @@ export async function createFinishAction(
   if (!name) return { error: 'Ponele un nombre a la opción.' }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar terminaciones.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 
@@ -52,6 +54,7 @@ export async function deleteFinishAction(
   finishId: string
 ): Promise<FinishState> {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar terminaciones.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 

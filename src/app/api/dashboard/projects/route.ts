@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { createProject, listProjects } from '@/modules/projects/project-service'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export async function GET() {
   try {
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
     tenant = await requireCurrentTenant()
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (!canManageContent(tenant.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { name, slug, address, geo } = await request.json().catch(() => ({}))

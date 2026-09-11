@@ -13,6 +13,7 @@ import {
 import { listUnitsByProject } from '@/modules/units/unit-service'
 import { listToursByProject } from '@/modules/tours/tour-service'
 import { checkCanCreate } from '@/modules/billing/billing-service'
+import { canManageContent } from '@/modules/tenancy/permissions'
 
 export interface CreateProjectState {
   error?: string
@@ -84,6 +85,7 @@ export async function createProjectAction(
   }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar proyectos.' }
 
   const limitError = await checkCanCreate(tenant.tenantId, 'project')
   if (limitError) return { error: limitError }
@@ -130,6 +132,7 @@ export async function updateProjectAction(
   }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar proyectos.' }
   const existing = await getProject(tenant.tenantId, projectId)
   if (!existing) return { error: 'No tenés acceso a este proyecto.' }
 
@@ -171,6 +174,7 @@ export async function toggleProjectStatusAction(
   projectId: string
 ): Promise<CreateProjectState> {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar proyectos.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 
@@ -206,6 +210,7 @@ export async function deleteProjectAction(
   projectId: string
 ): Promise<CreateProjectState> {
   const tenant = await requireCurrentTenant()
+  if (!canManageContent(tenant.role)) return { error: 'Tu rol no puede gestionar proyectos.' }
   const project = await getProject(tenant.tenantId, projectId)
   if (!project) return { error: 'No tenés acceso a este proyecto.' }
 

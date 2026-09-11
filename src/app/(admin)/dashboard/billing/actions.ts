@@ -18,6 +18,7 @@ import {
 import { withTenant } from '@/server/db/tenant-db'
 import { subscriptions } from '@/server/db/schema'
 import { eq } from 'drizzle-orm'
+import { canManageTenant } from '@/modules/tenancy/permissions'
 
 export interface BillingState {
   error?: string
@@ -37,6 +38,7 @@ export async function subscribeAction(
   }
 
   const [tenant, user] = await Promise.all([requireCurrentTenant(), getUser()])
+  if (!canManageTenant(tenant.role)) return { error: 'Sólo un administrador puede gestionar la facturación.' }
   const plan = await getPlanBySlug(planSlug)
 
   if (!plan) return { error: 'Ese plan no existe.' }
@@ -81,6 +83,7 @@ export async function subscribeAction(
 
 export async function cancelSubscriptionAction(): Promise<BillingState> {
   const tenant = await requireCurrentTenant()
+  if (!canManageTenant(tenant.role)) return { error: 'Sólo un administrador puede gestionar la facturación.' }
   const current = await getTenantSubscription(tenant.tenantId)
 
   if (!current.isActive) {

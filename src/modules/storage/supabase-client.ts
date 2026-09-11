@@ -9,7 +9,64 @@ export interface UploadInput {
   tenantId: string
   projectId: string
   fileName: string
-  fileType: 'glb' | '360' | 'video' | 'image'
+  fileType: 'glb-model' | '360' | 'drone-video' | 'image'
+}
+
+export const UPLOAD_RULES = {
+  'glb-model': { maxSize: 50 * 1024 * 1024, extensions: ['.glb'], mimeTypes: ['model/gltf-binary', 'application/octet-stream'] },
+  '360': { maxSize: 100 * 1024 * 1024, extensions: ['.jpg', '.jpeg', '.png'], mimeTypes: ['image/jpeg', 'image/png'] },
+  image: { maxSize: 100 * 1024 * 1024, extensions: ['.jpg', '.jpeg', '.png', '.webp'], mimeTypes: ['image/jpeg', 'image/png', 'image/webp'] },
+  'drone-video': { maxSize: 500 * 1024 * 1024, extensions: ['.mp4', '.webm'], mimeTypes: ['video/mp4', 'video/webm'] },
+} as const
+
+export type UploadKind = keyof typeof UPLOAD_RULES
+const BUCKET_NAME = 'showroom-assets'
+const ALLOWED_MIME_TYPES = [
+  'model/gltf-binary',
+  'application/octet-stream',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+  'application/pdf',
+]
+
+function extensionOf(fileName: string) {
+  const dot = fileName.lastIndexOf('.')
+  return dot >= 0 ? fileName.slice(dot).toLowerCase() : ''
+}
+
+export function isAllowedUpload(kind: UploadKind, fileName: string, mimeType: string, fileSize: number) {
+  const rule = UPLOAD_RULES[kind]
+  return (
+    Number.isSafeInteger(fileSize) && fileSize > 0 && fileSize <= rule.maxSize &&
+    rule.extensions.includes(extensionOf(fileName) as never) &&
+    rule.mimeTypes.includes(mimeType as never)
+  )
+}
+
+/** Confirms the object actually uploaded to Storage still matches its signed-upload policy. */
+export async function verifyUploadedAsset(input: {
+  tenantId: string
+  projectId: string
+  kind: UploadKind
+  storageKey: string
+}) {
+  const prefix = `${input.tenantId}/${input.projectId}/${input.kind}/`
+  if (!input.storageKey.startsWith(prefix)) return false
+
+  const name = input.storageKey.slice(prefix.length)
+  if (!name || name.includes('/')) return false
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).list(prefix.slice(0, -1), { search: name })
+  if (error) return false
+  const object = data.find((item) => item.name === name)
+  const metadata = object?.metadata as { size?: number; mimetype?: string } | undefined
+  return Boolean(metadata && isAllowedUpload(input.kind, name, metadata.mimetype ?? '', Number(metadata.size)))
+}
+
+export function getPublicAssetUrl(storageKey: string) {
+  return supabase.storage.from(BUCKET_NAME).getPublicUrl(storageKey).data.publicUrl
 }
 
 /**
@@ -35,7 +92,7 @@ function safeFileName(raw: string): string {
 
 export async function generateUploadUrl(input: UploadInput) {
   // Create a bucket name (Supabase requires lowercase, no special chars)
-  const bucketName = 'showroom-assets'
+  const bucketName = BUCKET_NAME
 
   // El prefijo lo arma el servidor con ids que ya validó; sólo el nombre
   // final viene del cliente, y va saneado.
@@ -66,7 +123,7 @@ export async function generateUploadUrl(input: UploadInput) {
 }
 
 export async function createBucketIfNotExists() {
-  const bucketName = 'showroom-assets'
+  const bucketName = BUCKET_NAME
 
   try {
     // Try to get the bucket
@@ -86,18 +143,23 @@ export async function createBucketIfNotExists() {
         bucketName,
         {
           public: true, // Make files publicly accessible
-          allowedMimeTypes: [
-            'model/gltf-binary', // GLB
-            'image/jpeg',
-            'image/png',
-            'video/mp4',
-            'image/x-icon',
-          ],
+          allowedMimeTypes: ALLOWED_MIME_TYPES,
         }
       )
 
       if (createError) {
         console.error('Error creating bucket:', createError)
+        return false
+      }
+    } else {
+      // Existing buckets keep their old allow-list unless explicitly updated.
+      // Keep it aligned with the formats exposed by the upload UI.
+      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+        public: true,
+        allowedMimeTypes: ALLOWED_MIME_TYPES,
+      })
+      if (updateError) {
+        console.error('Error updating bucket policy:', updateError)
         return false
       }
     }

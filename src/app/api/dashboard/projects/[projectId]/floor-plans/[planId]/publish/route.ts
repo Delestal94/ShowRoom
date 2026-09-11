@@ -4,6 +4,7 @@ import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import { getProject } from '@/modules/projects/project-service'
 import { publishFloorPlan } from '@/modules/floor-plans/floor-plan-service'
 import { invalidateProject } from '@/modules/public/cached-storefront'
+import { getPublicAssetUrl, verifyUploadedAsset } from '@/modules/storage/supabase-client'
 
 export async function POST(
   request: Request,
@@ -27,19 +28,29 @@ export async function POST(
     return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
 
-  const { storageKey, cdnUrl } = await request.json().catch(() => ({}))
-  if (!storageKey || !cdnUrl) {
+  const { storageKey } = await request.json().catch(() => ({}))
+  if (!storageKey) {
     return NextResponse.json(
       { error: 'Missing required fields: storageKey, cdnUrl' },
       { status: 400 }
     )
   }
 
+  const validAsset = await verifyUploadedAsset({
+    tenantId: tenant.tenantId,
+    projectId: params.projectId,
+    kind: 'glb-model',
+    storageKey: String(storageKey),
+  })
+  if (!validAsset) {
+    return NextResponse.json({ error: 'Uploaded GLB is missing or invalid' }, { status: 400 })
+  }
+
   try {
     const plan = await publishFloorPlan(tenant.tenantId, params.planId, {
       projectId: params.projectId,
       storageKey,
-      cdnUrl,
+      cdnUrl: getPublicAssetUrl(String(storageKey)),
     })
     if (!plan) {
       return NextResponse.json({ error: 'Floor plan not found' }, { status: 404 })

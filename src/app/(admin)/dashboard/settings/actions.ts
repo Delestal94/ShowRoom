@@ -7,6 +7,7 @@ import { withTenant } from '@/server/db/tenant-db'
 import { tenants } from '@/server/db/schema'
 import { listProjects } from '@/modules/projects/project-service'
 import { invalidateProject } from '@/modules/public/cached-storefront'
+import { canManageTenant } from '@/modules/tenancy/permissions'
 
 export interface SettingsState {
   error?: string
@@ -69,6 +70,7 @@ export async function updateTenantAction(
   }
 
   const tenant = await requireCurrentTenant()
+  if (!canManageTenant(tenant.role)) return { error: 'Sólo un administrador puede cambiar los ajustes.' }
 
   try {
     await withTenant(tenant.tenantId, (tx) =>

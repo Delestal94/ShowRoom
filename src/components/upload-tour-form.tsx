@@ -14,7 +14,8 @@ interface UploadTourFormProps {
 }
 
 const TOUR_TYPES: { value: TourKind; label: string; accept: string; icon: string }[] = [
-  { value: 'glb-model', label: 'Modelo 3D', accept: '.glb,.gltf', icon: '🏢' },
+  // A .gltf can reference sidecar textures/buffers, while this flow uploads one file.
+  { value: 'glb-model', label: 'Modelo 3D', accept: '.glb', icon: '🏢' },
   { value: '360', label: 'Panorámica 360°', accept: 'image/jpeg,image/png', icon: '🔄' },
   { value: 'image', label: 'Foto', accept: 'image/jpeg,image/png,image/webp', icon: '📷' },
   { value: 'drone-video', label: 'Video drone', accept: 'video/mp4,video/webm', icon: '🚁' },
@@ -62,10 +63,11 @@ export function UploadTourForm({ projectId, unitId, onSuccess }: UploadTourFormP
     setProgress(0)
 
     try {
+      const mimeType = file.type || (kind === 'glb-model' ? 'model/gltf-binary' : '')
       const presignRes = await fetch('/api/uploads/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, tourKind: kind, fileName: file.name }),
+        body: JSON.stringify({ projectId, tourKind: kind, fileName: file.name, mimeType, fileSize: file.size }),
       })
 
       if (!presignRes.ok) {
@@ -122,7 +124,7 @@ export function UploadTourForm({ projectId, unitId, onSuccess }: UploadTourFormP
       })
 
       xhr.open('PUT', presignedUrl)
-      xhr.setRequestHeader('Content-Type', file.type)
+      xhr.setRequestHeader('Content-Type', mimeType)
       xhr.send(file)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'La subida falló')

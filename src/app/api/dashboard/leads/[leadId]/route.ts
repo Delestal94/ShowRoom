@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { updateLead } from '@/modules/leads/lead-service'
+import { canManageCrm } from '@/modules/tenancy/permissions'
 
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'won', 'lost'] as const
 
@@ -13,6 +14,9 @@ export async function PATCH(
     tenant = await requireCurrentTenant()
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (!canManageCrm(tenant.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { status } = await request.json().catch(() => ({}))
