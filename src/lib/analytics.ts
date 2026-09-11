@@ -47,10 +47,12 @@ export async function trackEvent(event: AnalyticsEvent) {
 export async function flushEvents() {
   if (eventQueue.length === 0) return
 
-  const events = eventQueue.splice(0)
+  // The endpoint intentionally caps batches at 50. Keeping the rest queued
+  // prevents a long-lived tab from producing an invalid all-or-nothing body.
+  const events = eventQueue.splice(0, 50)
 
   try {
-    await fetch('/api/analytics/collect', {
+    const response = await fetch('/api/analytics/collect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -59,6 +61,9 @@ export async function flushEvents() {
         timestamp: new Date().toISOString(),
       }),
     })
+    if (!response.ok) {
+      throw new Error(`Analytics endpoint returned ${response.status}`)
+    }
   } catch (error) {
     console.error('Failed to flush analytics events:', error)
     // Re-queue events on failure

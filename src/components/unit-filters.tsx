@@ -8,6 +8,8 @@ interface FilterOptions {
   orientations: string[]
   bedrooms: number[]
   floors: number[]
+  hasParking: boolean
+  hasStorage: boolean
 }
 
 interface UnitFiltersProps {
@@ -33,6 +35,8 @@ export function UnitFilters({ onFiltersChange, filterOptions }: UnitFiltersProps
   const [bedrooms, setBedrooms] = useState('')
   const [floor, setFloor] = useState('')
   const [search, setSearch] = useState('')
+  const [cochera, setCochera] = useState(false)
+  const [baulera, setBaulera] = useState(false)
 
   // Debounced so typing in the text inputs doesn't fire a request per keystroke.
   useEffect(() => {
@@ -46,20 +50,23 @@ export function UnitFilters({ onFiltersChange, filterOptions }: UnitFiltersProps
       if (bedrooms) filters.bedrooms = parseInt(bedrooms)
       if (floor) filters.floor = parseInt(floor)
       if (search) filters.search = search
+      if (cochera) filters.cochera = true
+      if (baulera) filters.baulera = true
       onFiltersChange(filters)
     }, 300)
 
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search])
+  }, [minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search, cochera, baulera])
 
   const activeCount = [
-    minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search,
+    minPrice, maxPrice, minM2, maxM2, orientation, bedrooms, floor, search, cochera, baulera,
   ].filter(Boolean).length
 
   const clearAll = () => {
     setMinPrice(''); setMaxPrice(''); setMinM2(''); setMaxM2('')
     setOrientation(''); setBedrooms(''); setFloor(''); setSearch('')
+    setCochera(false); setBaulera(false)
   }
 
   return (
@@ -202,6 +209,16 @@ export function UnitFilters({ onFiltersChange, filterOptions }: UnitFiltersProps
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {filterOptions && (filterOptions.hasParking || filterOptions.hasStorage) && (
+          <div>
+            <span className={labelCls}>Extras</span>
+            <div className="space-y-2 text-sm text-fg-muted">
+              {filterOptions.hasParking && <label className="flex items-center gap-2"><input type="checkbox" checked={cochera} onChange={(e) => setCochera(e.target.checked)} /> Cochera</label>}
+              {filterOptions.hasStorage && <label className="flex items-center gap-2"><input type="checkbox" checked={baulera} onChange={(e) => setBaulera(e.target.checked)} /> Baulera</label>}
+            </div>
           </div>
         )}
       </div>

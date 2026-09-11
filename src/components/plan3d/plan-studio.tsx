@@ -362,6 +362,8 @@ export function PlanStudio({
           projectId,
           tourKind: 'glb-model',
           fileName: `${floorPlanId}.glb`,
+          mimeType: 'model/gltf-binary',
+          fileSize: blob.size,
         }),
       })
       if (!presignRes.ok) throw new Error('presign')

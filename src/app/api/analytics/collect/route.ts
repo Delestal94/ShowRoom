@@ -33,8 +33,9 @@ const eventSchema = z.object({
 const bodySchema = z.object({
   sessionId: z.string().min(1).max(200),
   // Tope duro por lote: cada evento hace una consulta más un insert, así
-  // que un array sin límite es un DoS y un inflador de la base.
-  events: z.array(eventSchema).min(1).max(50),
+  // que un array sin límite es un DoS y un inflador de la base. Cada evento
+  // se valida debajo para que uno roto no descarte los demás del lote.
+  events: z.array(z.unknown()).min(1).max(50),
 })
 
 export async function POST(request: Request) {
@@ -46,7 +47,20 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Invalid request' }, { status: 400 })
     }
 
-    const { sessionId, events } = parsed.data
+    const { sessionId, events: rawEvents } = parsed.data
+
+    // El visor puede acumular eventos de una versión anterior o de una
+    // extensión del navegador. Rechazarlos individualmente conserva los
+    // válidos y evita que el cliente pierda todo el lote por un solo 400.
+    const events = rawEvents.flatMap((raw) => {
+      const event = eventSchema.safeParse(raw)
+      return event.success ? [event.data] : []
+    })
+    const rejected = rawEvents.length - events.length
+
+    if (events.length === 0) {
+      return Response.json({ success: true, processed: 0, rejected })
+    }
 
     const limit = await checkRateLimit(clientKey(request, 'analytics'), 120, 3600)
     if (!limit.allowed) {
@@ -66,7 +80,7 @@ export async function POST(request: Request) {
     ) as string[]
 
     if (slugs.length === 0) {
-      return Response.json({ success: true, processed: 0 })
+      return Response.json({ success: true, processed: 0, rejected })
     }
 
     const found = await db.query.projects.findMany({
@@ -104,7 +118,7 @@ export async function POST(request: Request) {
 
     await recordEvents(toInsert)
 
-    return Response.json({ success: true, processed: toInsert.length })
+    return Response.json({ success: true, processed: toInsert.length, rejected })
   } catch (error) {
     console.error('Error collecting analytics:', error)
     return Response.json(

@@ -7,6 +7,7 @@ import { listUnitsByProject } from '@/modules/units/unit-service'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { AddUnitsPanel } from './add-units-panel'
 import { UnitsTable, type UnitRow } from './units-table'
+import { listBuildings } from '@/modules/buildings/building-service'
 
 export const metadata: Metadata = { title: 'Unidades' }
 
@@ -19,7 +20,10 @@ export default async function UnitsPage({
   const project = await getProject(tenant.tenantId, params.projectId)
   if (!project) notFound()
 
-  const units = await listUnitsByProject(tenant.tenantId, params.projectId)
+  const [units, buildings] = await Promise.all([
+    listUnitsByProject(tenant.tenantId, params.projectId),
+    listBuildings(tenant.tenantId, params.projectId),
+  ])
 
   const available = units.filter((u) => u.status === 'available').length
   const reserved = units.filter((u) => u.status === 'reserved').length
@@ -49,11 +53,11 @@ export default async function UnitsPage({
       </div>
 
       <div className="mt-8">
-        <AddUnitsPanel projectId={params.projectId} />
+        <AddUnitsPanel projectId={params.projectId} buildings={buildings} />
       </div>
 
       <div className="mt-6">
-        <UnitsTable units={units as UnitRow[]} projectId={params.projectId} />
+        <UnitsTable units={units as UnitRow[]} projectId={params.projectId} buildings={buildings} />
       </div>
     </div>
   )

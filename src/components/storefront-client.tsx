@@ -47,6 +47,8 @@ interface FilterOptions {
   orientations: string[]
   bedrooms: number[]
   floors: number[]
+  hasParking: boolean
+  hasStorage: boolean
 }
 
 interface StorefrontClientProps {

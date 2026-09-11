@@ -5,6 +5,7 @@ import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import { getProject } from '@/modules/projects/project-service'
 import { CreateFloorPlanForm } from '@/components/plan3d/create-floor-plan-form'
+import { listBuildings } from '@/modules/buildings/building-service'
 
 export const metadata: Metadata = { title: 'Nueva planta' }
 
@@ -17,6 +18,7 @@ export default async function NewFloorPlanPage({
   const project = await getProject(tenant.tenantId, params.projectId)
   if (!project) notFound()
   if (!canEditFloorPlans(tenant.role)) notFound()
+  const buildings = await listBuildings(tenant.tenantId, project.id)
 
   return (
     <div className="mx-auto max-w-xl">
@@ -36,7 +38,7 @@ export default async function NewFloorPlanPage({
       </div>
 
       <div className="mt-8">
-        <CreateFloorPlanForm projectId={project.id} />
+        <CreateFloorPlanForm projectId={project.id} buildings={buildings} />
       </div>
     </div>
   )

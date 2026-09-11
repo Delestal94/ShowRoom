@@ -6,10 +6,13 @@ import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import { canvasToPngBlob, loadPdf, renderPdfPage, type LoadedPdf } from './pdf-source'
 
-export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
+interface BuildingOption { id: string; name: string }
+
+export function CreateFloorPlanForm({ projectId, buildings = [] }: { projectId: string; buildings?: BuildingOption[] }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [level, setLevel] = useState('')
+  const [buildingId, setBuildingId] = useState('')
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -129,7 +132,14 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
       const presignRes = await fetch('/api/uploads/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, tourKind: 'image', fileName: uploadFileName }),
+        body: JSON.stringify({
+          projectId,
+          tourKind: 'image',
+          // PDFs are rendered client-side before upload, so the stored source is PNG.
+          fileName: uploadFileName.replace(/\.[^.]+$/, '') + '.png',
+          mimeType: uploadBlob.type || 'image/png',
+          fileSize: uploadBlob.size,
+        }),
       })
       if (!presignRes.ok) {
         const body = await presignRes.json().catch(() => ({}))
@@ -156,6 +166,7 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
         body: JSON.stringify({
           name: name.trim(),
           level: level.trim() ? Number(level) : undefined,
+          buildingId: buildingId || undefined,
           sourceStorageKey: storageKey,
           sourceCdnUrl: cdnUrl,
           sourceKind,
@@ -253,7 +264,7 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem_10rem]">
         <label className="block">
           <span className="text-xs text-fg-muted">Nombre de la planta</span>
           <input
@@ -273,6 +284,19 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
             className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-border-strong"
           />
         </label>
+        {buildings.length > 0 && (
+          <label className="block">
+            <span className="text-xs text-fg-muted">Torre</span>
+            <select
+              value={buildingId}
+              onChange={(e) => setBuildingId(e.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-border-strong"
+            >
+              <option value="">Sin torre</option>
+              {buildings.map((building) => <option key={building.id} value={building.id}>{building.name}</option>)}
+            </select>
+          </label>
+        )}
       </div>
 
       {error && (

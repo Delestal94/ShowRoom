@@ -7,6 +7,7 @@ export async function createUnit(
   projectId: string,
   data: {
     code: string
+    buildingId?: string | null
     floor?: number
     m2?: string
     price?: string
@@ -14,12 +15,13 @@ export async function createUnit(
     orientation?: string
     bedrooms?: number
     status?: string
+    attrsJson?: Record<string, unknown>
   }
 ) {
   return withTenant(tenantId, async (tx) => {
     const [unit] = await tx
       .insert(units)
-      .values({ tenantId, projectId, ...data })
+    .values({ tenantId, projectId, ...data })
       .returning()
     return unit
   })
@@ -31,6 +33,7 @@ export async function createUnitsBulk(
   projectId: string,
   rows: Array<{
     code: string
+    buildingId?: string | null
     floor?: number
     m2?: string
     price?: string
@@ -83,6 +86,7 @@ export async function updateUnit(
   unitId: string,
   data: Partial<{
     code: string
+    buildingId: string | null
     floor: number
     m2: string
     price: string
@@ -90,6 +94,7 @@ export async function updateUnit(
     status: string
     bedrooms: number
     orientation: string
+    attrsJson: Record<string, unknown>
   }>
 ) {
   return withTenant(tenantId, async (tx) => {

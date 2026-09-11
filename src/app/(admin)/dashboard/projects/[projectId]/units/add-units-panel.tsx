@@ -44,7 +44,9 @@ function Feedback({ state }: { state: UnitActionState }) {
   return null
 }
 
-function SingleUnitForm({ projectId }: { projectId: string }) {
+interface BuildingOption { id: string; name: string }
+
+function SingleUnitForm({ projectId, buildings }: { projectId: string; buildings: BuildingOption[] }) {
   const [state, formAction] = useFormState(createUnitAction.bind(null, projectId), {})
 
   return (
@@ -60,10 +62,23 @@ function SingleUnitForm({ projectId }: { projectId: string }) {
         </div>
 
         <div>
+          <label htmlFor="buildingId" className={labelCls}>Torre</label>
+          <select id="buildingId" name="buildingId" className={fieldCls} defaultValue="">
+            <option value="">Sin torre</option>
+            {buildings.map((building) => <option key={building.id} value={building.id}>{building.name}</option>)}
+          </select>
+        </div>
+
+        <div>
           <label htmlFor="floor" className={labelCls}>
             Piso
           </label>
           <input id="floor" name="floor" inputMode="numeric" placeholder="8" className={fieldCls} />
+        </div>
+
+        <div className="flex items-center gap-5 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="cochera" /> Cochera</label>
+          <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="baulera" /> Baulera</label>
         </div>
 
         <div>
@@ -183,7 +198,7 @@ function BulkImportForm({ projectId }: { projectId: string }) {
   )
 }
 
-export function AddUnitsPanel({ projectId }: { projectId: string }) {
+export function AddUnitsPanel({ projectId, buildings }: { projectId: string; buildings: BuildingOption[] }) {
   const [tab, setTab] = useState<'single' | 'bulk'>('single')
 
   return (
@@ -212,7 +227,7 @@ export function AddUnitsPanel({ projectId }: { projectId: string }) {
       </div>
 
       {tab === 'single' ? (
-        <SingleUnitForm projectId={projectId} />
+        <SingleUnitForm projectId={projectId} buildings={buildings} />
       ) : (
         <BulkImportForm projectId={projectId} />
       )}

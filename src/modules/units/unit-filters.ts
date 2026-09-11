@@ -1,6 +1,6 @@
 import { publicDb as db } from '@/server/db/tenant-db'
 import { units } from '@/server/db/schema'
-import { eq, and, gte, lte, ilike } from 'drizzle-orm'
+import { eq, and, gte, lte, ilike, sql } from 'drizzle-orm'
 
 export interface UnitFilterParams {
   projectId: string
@@ -14,6 +14,8 @@ export interface UnitFilterParams {
   floor?: number
   status?: string
   search?: string
+  cochera?: boolean
+  baulera?: boolean
 }
 
 export async function searchUnits(params: UnitFilterParams) {
@@ -29,6 +31,8 @@ export async function searchUnits(params: UnitFilterParams) {
     floor,
     status = 'available',
     search,
+    cochera,
+    baulera,
   } = params
 
   let query = db.query.units.findMany({
@@ -36,21 +40,23 @@ export async function searchUnits(params: UnitFilterParams) {
       eq(units.projectId, projectId),
       eq(units.tenantId, tenantId),
       // Price filter
-      minPrice ? gte(units.price, minPrice.toString()) : undefined,
-      maxPrice ? lte(units.price, maxPrice.toString()) : undefined,
+      minPrice !== undefined && minPrice !== null ? gte(units.price, minPrice.toString()) : undefined,
+      maxPrice !== undefined && maxPrice !== null ? lte(units.price, maxPrice.toString()) : undefined,
       // Size filter
-      minM2 ? gte(units.m2, minM2.toString()) : undefined,
-      maxM2 ? lte(units.m2, maxM2.toString()) : undefined,
+      minM2 !== undefined && minM2 !== null ? gte(units.m2, minM2.toString()) : undefined,
+      maxM2 !== undefined && maxM2 !== null ? lte(units.m2, maxM2.toString()) : undefined,
       // Status filter (default: available)
       status ? eq(units.status, status) : undefined,
       // Orientation filter
       orientation ? eq(units.orientation, orientation) : undefined,
       // Bedrooms filter
-      bedrooms ? eq(units.bedrooms, bedrooms) : undefined,
+      bedrooms !== undefined && bedrooms !== null ? eq(units.bedrooms, bedrooms) : undefined,
       // Floor filter
-      floor ? eq(units.floor, floor) : undefined,
+      floor !== undefined && floor !== null ? eq(units.floor, floor) : undefined,
       // Search in code
-      search ? ilike(units.code, `%${search}%`) : undefined
+      search ? ilike(units.code, `%${search}%`) : undefined,
+      cochera ? sql`${units.attrsJson} @> '{"cochera": true}'::jsonb` : undefined,
+      baulera ? sql`${units.attrsJson} @> '{"baulera": true}'::jsonb` : undefined
     ),
   })
 
@@ -71,7 +77,11 @@ export function getFilterOptions(unitsList: any[]) {
 
   const orientations = [...new Set(unitsList.map((u) => u.orientation).filter(Boolean))]
   const bedrooms = [...new Set(unitsList.map((u) => u.bedrooms).filter(Boolean))].sort()
-  const floors = [...new Set(unitsList.map((u) => u.floor).filter(Boolean))].sort()
+  const floors = [...new Set(
+    unitsList.map((u) => u.floor).filter((floor): floor is number => floor !== null && floor !== undefined)
+  )].sort((a, b) => a - b)
+  const hasParking = unitsList.some((unit) => (unit.attrsJson as Record<string, unknown> | null)?.cochera === true)
+  const hasStorage = unitsList.some((unit) => (unit.attrsJson as Record<string, unknown> | null)?.baulera === true)
 
   return {
     priceRange: {
@@ -85,6 +95,8 @@ export function getFilterOptions(unitsList: any[]) {
     orientations,
     bedrooms,
     floors,
+    hasParking,
+    hasStorage,
   }
 }
 

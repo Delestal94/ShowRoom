@@ -44,11 +44,13 @@ export async function GET(
     const bedrooms = url.searchParams.get('bedrooms')
       ? parseInt(url.searchParams.get('bedrooms')!)
       : undefined
-    const floor = url.searchParams.get('floor')
-      ? parseInt(url.searchParams.get('floor')!)
-      : undefined
+    const floorValue = url.searchParams.get('floor')
+    const parsedFloor = floorValue !== null ? Number.parseInt(floorValue, 10) : undefined
+    const floor = Number.isFinite(parsedFloor) ? parsedFloor : undefined
     const status = url.searchParams.get('status') || 'available'
     const search = url.searchParams.get('search') || undefined
+    const cochera = url.searchParams.get('cochera') === 'true'
+    const baulera = url.searchParams.get('baulera') === 'true'
 
     // Search units
     const units = await searchUnits({
@@ -63,6 +65,8 @@ export async function GET(
       floor,
       status,
       search,
+      cochera,
+      baulera,
     })
 
     // Get available filter options from all units in project

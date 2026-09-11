@@ -21,7 +21,11 @@ export interface UnitRow {
   orientation: string | null
   bedrooms: number | null
   status: string
+  buildingId: string | null
+  attrsJson: Record<string, unknown> | null
 }
+
+interface BuildingOption { id: string; name: string }
 
 const inputCls =
   'h-9 w-full rounded-sm border border-border bg-surface-2 px-2 text-sm text-fg focus:border-primary focus:outline-none'
@@ -48,7 +52,7 @@ function formatMoney(price: string | null, currency: string | null) {
   return `${currency ?? 'USD'} ${n.toLocaleString('es-AR')}`
 }
 
-function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string }) {
+function UnitTableRow({ unit, projectId, buildings }: { unit: UnitRow; projectId: string; buildings: BuildingOption[] }) {
   const [editing, setEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +67,9 @@ function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string })
     orientation: unit.orientation ?? '',
     bedrooms: unit.bedrooms?.toString() ?? '',
     status: unit.status,
+    buildingId: unit.buildingId ?? '',
+    cochera: unit.attrsJson?.cochera === true,
+    baulera: unit.attrsJson?.baulera === true,
   })
 
   const save = () => {
@@ -97,6 +104,12 @@ function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string })
           />
         </td>
         <td className="p-2">
+          <select className={inputCls} value={draft.buildingId} onChange={(e) => setDraft({ ...draft, buildingId: e.target.value })} aria-label="Torre">
+            <option value="">Sin torre</option>
+            {buildings.map((building) => <option key={building.id} value={building.id}>{building.name}</option>)}
+          </select>
+        </td>
+        <td className="p-2">
           <input
             className={inputCls}
             value={draft.floor}
@@ -104,6 +117,12 @@ function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string })
             aria-label="Piso"
             inputMode="numeric"
           />
+        </td>
+        <td className="p-2">
+          <div className="flex flex-col gap-1 text-xs text-fg-muted">
+            <label><input type="checkbox" checked={draft.cochera} onChange={(e) => setDraft({ ...draft, cochera: e.target.checked })} /> Cochera</label>
+            <label><input type="checkbox" checked={draft.baulera} onChange={(e) => setDraft({ ...draft, baulera: e.target.checked })} /> Baulera</label>
+          </div>
         </td>
         <td className="p-2">
           <input
@@ -194,7 +213,14 @@ function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string })
   return (
     <tr className={cn('border-b border-border transition-opacity', pending && 'opacity-50')}>
       <td className="p-3 font-medium text-fg">{unit.code}</td>
+      <td className="p-3 text-fg-muted">{buildings.find((building) => building.id === unit.buildingId)?.name ?? '—'}</td>
       <td className="p-3 text-fg-muted">{unit.floor ?? '—'}</td>
+      <td className="p-3 text-fg-muted">
+        {unit.attrsJson?.cochera === true ? 'Cochera' : ''}
+        {unit.attrsJson?.cochera === true && unit.attrsJson?.baulera === true ? ' · ' : ''}
+        {unit.attrsJson?.baulera === true ? 'Baulera' : ''}
+        {unit.attrsJson?.cochera !== true && unit.attrsJson?.baulera !== true ? '—' : ''}
+      </td>
       <td className="p-3 text-fg-muted">{unit.m2 ? `${unit.m2} m²` : '—'}</td>
       <td className="p-3 font-mono text-sm text-fg-muted">
         {formatMoney(unit.price, unit.currency)}
@@ -243,7 +269,7 @@ function UnitTableRow({ unit, projectId }: { unit: UnitRow; projectId: string })
   )
 }
 
-export function UnitsTable({ units, projectId }: { units: UnitRow[]; projectId: string }) {
+export function UnitsTable({ units, projectId, buildings }: { units: UnitRow[]; projectId: string; buildings: BuildingOption[] }) {
   if (units.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-surface/30 p-12 text-center">
@@ -261,7 +287,9 @@ export function UnitsTable({ units, projectId }: { units: UnitRow[]; projectId: 
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wider text-fg-subtle">
             <th className="p-3 font-medium">Código</th>
+            <th className="p-3 font-medium">Torre</th>
             <th className="p-3 font-medium">Piso</th>
+            <th className="p-3 font-medium">Extras</th>
             <th className="p-3 font-medium">Superficie</th>
             <th className="p-3 font-medium">Precio</th>
             <th className="p-3 font-medium">Orientación</th>
@@ -272,7 +300,7 @@ export function UnitsTable({ units, projectId }: { units: UnitRow[]; projectId: 
         </thead>
         <tbody>
           {units.map((unit) => (
-            <UnitTableRow key={unit.id} unit={unit} projectId={projectId} />
+            <UnitTableRow key={unit.id} unit={unit} projectId={projectId} buildings={buildings} />
           ))}
         </tbody>
       </table>
