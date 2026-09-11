@@ -8,17 +8,18 @@
 
 @layer base {
   :root {
-    /* Surfaces (dark-first) — gris más oscuro y neutro, poca tinta de color */
-    --bg: 0.105 0.005 265;
-    --surface: 0.145 0.006 265;
-    --surface-2: 0.185 0.007 265;
-    --border: 0.28 0.01 265;
-    --border-strong: 0.38 0.012 265;
+    /* Surfaces (dark-first) — gris a mitad de camino entre el casi negro
+       original y el gris intermedio: ni tan oscuro ni tan claro */
+    --bg: 0.25 0.004 265;
+    --surface: 0.30 0.005 265;
+    --surface-2: 0.35 0.006 265;
+    --border: 0.44 0.01 265;
+    --border-strong: 0.53 0.012 265;
 
-    /* Content */
-    --fg: 0.97 0.004 265;
-    --fg-muted: 0.72 0.014 265;
-    --fg-subtle: 0.58 0.016 265;
+    /* Content — a mitad de camino entre las dos versiones anteriores */
+    --fg: 0.975 0.003 265;
+    --fg-muted: 0.78 0.013 265;
+    --fg-subtle: 0.65 0.015 265;
 
     /* Brand */
     --primary: 0.62 0.21 275;
