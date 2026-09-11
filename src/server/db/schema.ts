@@ -260,6 +260,45 @@ export const tours = pgTable(
   })
 )
 
+/**
+ * Una planta de un proyecto, del trazado del editor plano-3d hasta su
+ * publicación como tour. `modelJson` es el estado editable completo (muros,
+ * aberturas, escala) — se guarda entero en cada autoguardado porque el
+ * editor siempre carga y opera sobre la planta completa, nunca sobre un
+ * subconjunto de muros.
+ */
+export const floorPlans = pgTable(
+  'floor_plans',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    buildingId: uuid('building_id').references(() => buildings.id, {
+      onDelete: 'set null',
+    }),
+    /** El GLB publicado, una vez que existe. */
+    tourId: uuid('tour_id').references(() => tours.id, { onDelete: 'set null' }),
+    name: text('name').notNull(), // "Planta baja", "Planta tipo", "Cochera"
+    level: integer('level'), // piso al que corresponde, para RF-28/RF-30
+    sourceStorageKey: text('source_storage_key'), // el plano original, nunca público
+    sourceCdnUrl: text('source_cdn_url'),
+    sourceKind: varchar('source_kind', { length: 20 }).notNull().default('image'), // image | pdf
+    pxPerMeter: decimal('px_per_meter', { precision: 12, scale: 4 }),
+    modelJson: jsonb('model_json').default({}),
+    status: varchar('status', { length: 20 }).notNull().default('draft'), // draft | published
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdIdx: index('floor_plans_project_id_idx').on(table.projectId),
+    tenantIdIdx: index('floor_plans_tenant_id_idx').on(table.tenantId),
+  })
+)
+
 export const finishOptions = pgTable(
   'finish_options',
   {

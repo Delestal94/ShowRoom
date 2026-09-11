@@ -147,6 +147,29 @@ export default async function ProjectDetailPage({
       <section className="mt-6 rounded-2xl border border-border bg-surface/50 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold text-fg">Plano a 3D</h2>
+              <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-[11px] font-medium text-warning">
+                Prototipo
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-fg-muted">
+              Convertí una planta del arquitecto en un modelo 3D navegable.
+            </p>
+          </div>
+          <ButtonLink
+            href={`/dashboard/projects/${project.id}/plano-3d`}
+            size="sm"
+            variant="outline"
+          >
+            Ver plantas
+          </ButtonLink>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-border bg-surface/50 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
             <h2 className="font-semibold text-fg">Avances de obra</h2>
             <p className="mt-1 text-sm text-fg-muted">
               Novedades para quienes ya consultaron por el proyecto.

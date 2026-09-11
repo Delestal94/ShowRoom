@@ -16,6 +16,15 @@ agentes especializados que existen en este proyecto para que la cubran.
   `docs/ux/BITACORA.md`).
 - **code-review** (skill `/code-review`): revisión de correctness y limpieza
   sobre el diff actual o una rama/PR.
+- **plano-arquitecto**: lee un plano 2D subido para `/dashboard/projects/[id]/plano-3d`
+  y lo traduce a escala, ambientes, muros y aberturas. Despachalo antes de
+  **plano-ingeniero-civil**, nunca al revés — el civil parte de su lectura.
+- **plano-ingeniero-civil**: a partir de esa lectura, decide espesores,
+  alturas y qué muros son portantes para parametrizar la extrusión.
+- **plano-verificador**: una vez que hay un modelo trazado/extruido, lo
+  audita contra la lectura de los dos anteriores y contra los m² declarados
+  de la unidad — cierra el ciclo lectura → parámetros → modelo → auditoría.
+  Despachalo al final de la cadena, nunca antes de que exista un modelo.
 - **Explore / general-purpose**: investigación puntual del código cuando
   necesitás entender algo antes de decidir qué despachar.
 
