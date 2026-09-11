@@ -18,6 +18,9 @@ build
 .DS_Store
 *.pem
 
+# generado por scripts/copy-pdf-worker.mjs en postinstall
+public/pdf.worker.min.mjs
+
 # debug
 npm-debug.log*
 yarn-debug.log*

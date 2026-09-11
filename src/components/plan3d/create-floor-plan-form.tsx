@@ -1,49 +1,120 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
+import { canvasToPngBlob, loadPdf, renderPdfPage, type LoadedPdf } from './pdf-source'
 
 export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [level, setLevel] = useState('')
-  const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const pickFile = (selected: File | null) => {
-    if (!selected) return
-    // El atributo `accept` del input sólo filtra el selector de archivos: no
-    // bloquea un archivo soltado por drag & drop. Sin esta validación, un
-    // PDF pasa el formulario entero y recién falla en el editor, con un
-    // error que no dice qué lo causó.
-    if (!selected.type.startsWith('image/')) {
-      setError(
-        selected.type === 'application/pdf'
-          ? 'Ese archivo es un PDF. Por ahora sólo se aceptan imágenes: exportá la página del plano a PNG o JPG y subí eso.'
-          : 'Ese archivo no es una imagen. Subí un PNG, JPG o WebP.'
-      )
-      return
+  // Un plano puede venir como imagen directa o como una página rasterizada
+  // de un PDF — en ambos casos terminamos con un Blob + un nombre de archivo
+  // para subir, y una URL para previsualizar.
+  const [uploadBlob, setUploadBlob] = useState<Blob | null>(null)
+  const [uploadFileName, setUploadFileName] = useState('')
+  const [sourceKind, setSourceKind] = useState<'image' | 'pdf'>('image')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  const [pdf, setPdf] = useState<LoadedPdf | null>(null)
+  const [pageNum, setPageNum] = useState(1)
+  const [rendering, setRendering] = useState(false)
+  const renderAbortRef = useRef<AbortController | null>(null)
+  const previewUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    previewUrlRef.current = previewUrl
+  }, [previewUrl])
+
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    },
+    []
+  )
+
+  const setPreview = (blob: Blob) => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    const url = URL.createObjectURL(blob)
+    previewUrlRef.current = url
+    setPreviewUrl(url)
+  }
+
+  const renderPage = async (loaded: LoadedPdf, page: number) => {
+    renderAbortRef.current?.abort()
+    const controller = new AbortController()
+    renderAbortRef.current = controller
+    setRendering(true)
+    try {
+      const canvas = await renderPdfPage(loaded, page, controller.signal)
+      if (controller.signal.aborted) return
+      const blob = await canvasToPngBlob(canvas)
+      setUploadBlob(blob)
+      setPreview(blob)
+    } catch {
+      if (!controller.signal.aborted) {
+        setError('No se pudo renderizar esa página del PDF.')
+      }
+    } finally {
+      if (!controller.signal.aborted) setRendering(false)
     }
+  }
+
+  const pickFile = async (selected: File | null) => {
+    if (!selected) return
     if (selected.size > 25 * 1024 * 1024) {
       setError('El archivo pesa demasiado (máx 25MB)')
       return
     }
+
     setError('')
-    setFile(selected)
-    if (!name) {
-      // Nombre de arranque razonable; el usuario lo puede cambiar antes de crear.
-      setName(selected.name.replace(/\.[^.]+$/, ''))
+    setPdf(null)
+
+    if (selected.type === 'application/pdf') {
+      setSourceKind('pdf')
+      setUploadFileName(selected.name.replace(/\.pdf$/i, '') + '.png')
+      if (!name) setName(selected.name.replace(/\.pdf$/i, ''))
+      try {
+        const loaded = await loadPdf(selected)
+        setPdf(loaded)
+        setPageNum(1)
+        await renderPage(loaded, 1)
+      } catch {
+        setError('No se pudo leer el PDF. Probá exportarlo a PNG o JPG.')
+      }
+      return
     }
+
+    if (!selected.type.startsWith('image/')) {
+      setError('Ese archivo no es una imagen ni un PDF. Subí un PNG, JPG, WebP o PDF.')
+      return
+    }
+
+    setSourceKind('image')
+    setUploadBlob(selected)
+    setUploadFileName(selected.name)
+    setPreview(selected)
+    if (!name) setName(selected.name.replace(/\.[^.]+$/, ''))
+  }
+
+  const changePage = (delta: number) => {
+    if (!pdf) return
+    const next = Math.min(pdf.numPages, Math.max(1, pageNum + delta))
+    if (next === pageNum) return
+    setPageNum(next)
+    renderPage(pdf, next)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file) {
-      setError('Subí una imagen del plano primero')
+    if (!uploadBlob) {
+      setError('Subí el plano primero')
       return
     }
     if (!name.trim()) {
@@ -58,7 +129,7 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
       const presignRes = await fetch('/api/uploads/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, tourKind: 'image', fileName: file.name }),
+        body: JSON.stringify({ projectId, tourKind: 'image', fileName: uploadFileName }),
       })
       if (!presignRes.ok) {
         const body = await presignRes.json().catch(() => ({}))
@@ -70,8 +141,8 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
 
       const putRes = await fetch(presignedUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
+        headers: { 'Content-Type': uploadBlob.type || 'image/png' },
+        body: uploadBlob,
       })
       if (!putRes.ok) {
         setError('La subida del plano falló. Probá de nuevo.')
@@ -87,7 +158,7 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
           level: level.trim() ? Number(level) : undefined,
           sourceStorageKey: storageKey,
           sourceCdnUrl: cdnUrl,
-          sourceKind: 'image',
+          sourceKind,
         }),
       })
       if (!createRes.ok) {
@@ -118,24 +189,69 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
           pickFile(e.dataTransfer.files?.[0] ?? null)
         }}
         className={cn(
-          'flex h-56 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-colors',
+          'flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-colors',
           dragging ? 'border-primary bg-primary/5' : 'border-border bg-surface/40 hover:border-border-strong'
         )}
       >
         <input
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,application/pdf"
           className="sr-only"
           onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
         />
-        <p className="text-sm font-medium text-fg">
-          {file ? file.name : 'Arrastrá o hacé clic para subir el plano'}
-        </p>
-        <p className="mt-2 max-w-sm text-xs text-fg-muted">
-          PNG, JPG o WebP. Cuanto más limpio el plano —sin muebles ni sombreados— mejor funciona
-          la detección automática. PDF todavía no se acepta: exportalo a imagen primero.
-        </p>
+
+        {previewUrl ? (
+          <div className="w-full">
+            <div className="relative mx-auto max-h-48 w-fit overflow-hidden rounded-md border border-border bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt="Vista previa del plano" className="max-h-48 w-auto" />
+              {rendering && (
+                <div className="absolute inset-0 flex items-center justify-center bg-bg/70">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+                </div>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-fg-muted">
+              {sourceKind === 'pdf' ? uploadFileName.replace(/\.png$/, '.pdf') : uploadFileName}
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-fg">Arrastrá o hacé clic para subir el plano</p>
+            <p className="mt-2 max-w-sm text-xs text-fg-muted">
+              PNG, JPG, WebP o PDF. Cuanto más limpio el plano —sin muebles ni sombreados— mejor
+              funciona la detección automática.
+            </p>
+          </>
+        )}
       </label>
+
+      {pdf && pdf.numPages > 1 && (
+        <div
+          className="flex items-center justify-center gap-3"
+          onClick={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            onClick={() => changePage(-1)}
+            disabled={pageNum <= 1 || rendering}
+            className="rounded-full border border-border px-3 py-1 text-sm text-fg disabled:opacity-40"
+          >
+            ← Anterior
+          </button>
+          <span className="text-sm text-fg-muted">
+            Página {pageNum} de {pdf.numPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => changePage(1)}
+            disabled={pageNum >= pdf.numPages || rendering}
+            className="rounded-full border border-border px-3 py-1 text-sm text-fg disabled:opacity-40"
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
         <label className="block">
@@ -165,7 +281,7 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
         </p>
       )}
 
-      <Button type="submit" disabled={!file || loading} className="w-full">
+      <Button type="submit" disabled={!uploadBlob || loading || rendering} className="w-full">
         {loading ? 'Creando…' : 'Crear planta y empezar a trazar'}
       </Button>
     </form>
