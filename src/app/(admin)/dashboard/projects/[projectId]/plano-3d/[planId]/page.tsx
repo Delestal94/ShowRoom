@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
+import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import { getProject } from '@/modules/projects/project-service'
 import { getFloorPlan } from '@/modules/floor-plans/floor-plan-service'
 import { PlanStudio } from '@/components/plan3d/plan-studio'
@@ -16,6 +17,11 @@ export default async function FloorPlanEditorPage({
   const tenant = await requireCurrentTenant()
   const project = await getProject(tenant.tenantId, params.projectId)
   if (!project) notFound()
+  // El editor autoguarda y publica de forma implícita apenas se abre; sin
+  // permiso de edición no hay una versión "de sólo lectura" útil, así que
+  // se bloquea la página entera en vez de mostrar un editor que va a
+  // fallar en el primer autoguardado.
+  if (!canEditFloorPlans(tenant.role)) notFound()
 
   const plan = await getFloorPlan(tenant.tenantId, params.planId)
   if (!plan || plan.projectId !== params.projectId || !plan.sourceCdnUrl) notFound()

@@ -9,6 +9,7 @@ import { exportPlanToGlb } from './export-glb'
 import { detectWalls } from './wall-detector'
 import {
   boundingAreaM2,
+  canPlaceOpening,
   createId,
   distance,
   emptyPlan,
@@ -70,6 +71,7 @@ export function PlanStudio({
   const [imageReady, setImageReady] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [history, setHistory] = useState<PlanModel[]>([])
+  const [redoStack, setRedoStack] = useState<PlanModel[]>([])
   const [mode, setMode] = useState<EditorMode>(initialPxPerMeter ? 'draw' : 'calibrate')
   const [ortho, setOrtho] = useState(true)
   const [openingKind, setOpeningKind] = useState<OpeningKind>('door')
@@ -106,6 +108,7 @@ export function PlanStudio({
   const update = useCallback((fn: (prev: PlanModel) => PlanModel) => {
     setModel((prev) => {
       setHistory((h) => [...h, prev].slice(-MAX_HISTORY))
+      setRedoStack([]) // un cambio nuevo invalida cualquier rehacer pendiente
       skipNextSaveRef.current = false
       return fn(prev)
     })
@@ -115,21 +118,36 @@ export function PlanStudio({
     setHistory((h) => {
       if (h.length === 0) return h
       skipNextSaveRef.current = false
-      setModel(h[h.length - 1])
+      setModel((current) => {
+        setRedoStack((r) => [...r, current].slice(-MAX_HISTORY))
+        return h[h.length - 1]
+      })
       return h.slice(0, -1)
+    })
+  }, [])
+
+  const redo = useCallback(() => {
+    setRedoStack((r) => {
+      if (r.length === 0) return r
+      skipNextSaveRef.current = false
+      setModel((current) => {
+        setHistory((h) => [...h, current].slice(-MAX_HISTORY))
+        return r[r.length - 1]
+      })
+      return r.slice(0, -1)
     })
   }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        undo()
-      }
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return
+      e.preventDefault()
+      if (e.shiftKey) redo()
+      else undo()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [undo])
+  }, [undo, redo])
 
   // Autoguardado: espera una pausa de inactividad y guarda el modelo entero.
   // No hay parche parcial porque el editor siempre opera sobre la planta
@@ -248,25 +266,29 @@ export function PlanStudio({
       openings: prev.openings.filter((o) => o.wallId !== id),
     }))
 
-  const addOpening = (wallId: string, offset: number) =>
-    update((prev) => {
-      const preset = OPENING_PRESETS[openingKind]
-      return {
-        ...prev,
-        openings: [
-          ...prev.openings,
-          {
-            id: createId('op'),
-            wallId,
-            offset,
-            width: preset.width,
-            height: preset.height,
-            sill: preset.sill,
-            kind: openingKind,
-          },
-        ],
-      }
-    })
+  const addOpening = (wallId: string, offset: number) => {
+    const preset = OPENING_PRESETS[openingKind]
+    const check = canPlaceOpening(model, wallId, offset, preset.width)
+    if (!check.ok) {
+      setNotice(check.reason)
+      return
+    }
+    update((prev) => ({
+      ...prev,
+      openings: [
+        ...prev.openings,
+        {
+          id: createId('op'),
+          wallId,
+          offset,
+          width: preset.width,
+          height: preset.height,
+          sill: preset.sill,
+          kind: openingKind,
+        },
+      ],
+    }))
+  }
 
   const deleteOpening = (id: string) =>
     update((prev) => ({ ...prev, openings: prev.openings.filter((o) => o.id !== id) }))
@@ -404,6 +426,14 @@ export function PlanStudio({
           className="rounded-full px-3 py-1.5 text-sm text-fg-muted transition-colors hover:text-fg disabled:opacity-40"
         >
           Deshacer
+        </button>
+        <button
+          type="button"
+          onClick={redo}
+          disabled={redoStack.length === 0}
+          className="rounded-full px-3 py-1.5 text-sm text-fg-muted transition-colors hover:text-fg disabled:opacity-40"
+        >
+          Rehacer
         </button>
 
         <SaveIndicator status={saveStatus} />

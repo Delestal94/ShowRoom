@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
+import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import {
   deleteFloorPlan,
   getFloorPlan,
@@ -35,6 +36,12 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  if (!canEditFloorPlans(tenant.role)) {
+    return NextResponse.json(
+      { error: 'Tu rol no puede editar plantas' },
+      { status: 403 }
+    )
+  }
 
   const { modelJson, pxPerMeter, name, level } = await request.json().catch(() => ({}))
 
@@ -68,6 +75,12 @@ export async function DELETE(
     tenant = await requireCurrentTenant()
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (!canEditFloorPlans(tenant.role)) {
+    return NextResponse.json(
+      { error: 'Tu rol no puede borrar plantas' },
+      { status: 403 }
+    )
   }
 
   try {

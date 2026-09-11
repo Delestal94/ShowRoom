@@ -78,6 +78,47 @@ export function wallLength(wall: Wall, pxPerMeter: number | null): number {
   return distance(wall.a, wall.b) / pxPerMeter
 }
 
+/**
+ * RF-25: antes se recortaba una abertura fuera de rango o superpuesta en
+ * silencio (ver buildWallPieces) — el usuario nunca se enteraba de que el
+ * vano real terminó siendo distinto del que pidió. Esto se llama antes de
+ * agregar o mover una abertura para rechazarla con un motivo, en vez de
+ * dejar que el recorte silencioso decida.
+ */
+export function canPlaceOpening(
+  model: PlanModel,
+  wallId: string,
+  offset: number,
+  width: number,
+  excludeOpeningId?: string
+): { ok: true } | { ok: false; reason: string } {
+  const wall = model.walls.find((w) => w.id === wallId)
+  if (!wall) return { ok: false, reason: 'Ese muro ya no existe.' }
+
+  const length = wallLength(wall, model.pxPerMeter)
+  const start = offset - width / 2
+  const end = offset + width / 2
+
+  if (start < -0.001 || end > length + 0.001) {
+    return {
+      ok: false,
+      reason: `No entra en el muro (mide ${length.toFixed(2)} m): probá más al centro.`,
+    }
+  }
+
+  const overlaps = model.openings.some((o) => {
+    if (o.wallId !== wallId || o.id === excludeOpeningId) return false
+    const oStart = o.offset - o.width / 2
+    const oEnd = o.offset + o.width / 2
+    return start < oEnd && end > oStart
+  })
+  if (overlaps) {
+    return { ok: false, reason: 'Se superpone con otra abertura del mismo muro.' }
+  }
+
+  return { ok: true }
+}
+
 export function totalWallLength(model: PlanModel): number {
   return model.walls.reduce((sum, w) => sum + wallLength(w, model.pxPerMeter), 0)
 }

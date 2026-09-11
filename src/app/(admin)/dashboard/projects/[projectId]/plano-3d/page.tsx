@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { listFloorPlansByProject } from '@/modules/floor-plans/floor-plan-service'
+import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import { ButtonLink } from '@/components/ui/button'
 import { DeleteFloorPlanButton } from '@/components/plan3d/delete-floor-plan-button'
 
@@ -24,6 +25,7 @@ export default async function PlanoTo3DListPage({
   if (!project) notFound()
 
   const plans = await listFloorPlansByProject(tenant.tenantId, params.projectId)
+  const canEdit = canEditFloorPlans(tenant.role)
 
   return (
     <div>
@@ -43,9 +45,11 @@ export default async function PlanoTo3DListPage({
             extruye el volumen.
           </p>
         </div>
-        <ButtonLink href={`/dashboard/projects/${params.projectId}/plano-3d/new`} size="sm">
-          + Nueva planta
-        </ButtonLink>
+        {canEdit && (
+          <ButtonLink href={`/dashboard/projects/${params.projectId}/plano-3d/new`} size="sm">
+            + Nueva planta
+          </ButtonLink>
+        )}
       </div>
 
       <div className="mt-8">
@@ -53,15 +57,19 @@ export default async function PlanoTo3DListPage({
           <div className="rounded-2xl border border-dashed border-border bg-surface/40 p-10 text-center">
             <p className="font-medium text-fg">Todavía no hay ninguna planta cargada</p>
             <p className="mt-1 text-sm text-fg-muted">
-              Subí el plano de la planta baja, la planta tipo o cualquier otra para empezar.
+              {canEdit
+                ? 'Subí el plano de la planta baja, la planta tipo o cualquier otra para empezar.'
+                : 'Todavía no se cargó ninguna planta de este proyecto.'}
             </p>
-            <ButtonLink
-              href={`/dashboard/projects/${params.projectId}/plano-3d/new`}
-              size="sm"
-              className="mt-5"
-            >
-              + Nueva planta
-            </ButtonLink>
+            {canEdit && (
+              <ButtonLink
+                href={`/dashboard/projects/${params.projectId}/plano-3d/new`}
+                size="sm"
+                className="mt-5"
+              >
+                + Nueva planta
+              </ButtonLink>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -83,7 +91,9 @@ export default async function PlanoTo3DListPage({
                     >
                       {STATUS_LABEL[plan.status] ?? plan.status}
                     </span>
-                    <DeleteFloorPlanButton projectId={params.projectId} planId={plan.id} />
+                    {canEdit && (
+                      <DeleteFloorPlanButton projectId={params.projectId} planId={plan.id} />
+                    )}
                   </div>
                 </div>
                 {plan.level !== null && (

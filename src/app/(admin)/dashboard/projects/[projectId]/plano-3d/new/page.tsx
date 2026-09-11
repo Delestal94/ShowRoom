@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
+import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import { getProject } from '@/modules/projects/project-service'
 import { CreateFloorPlanForm } from '@/components/plan3d/create-floor-plan-form'
 
@@ -15,6 +16,7 @@ export default async function NewFloorPlanPage({
   const tenant = await requireCurrentTenant()
   const project = await getProject(tenant.tenantId, params.projectId)
   if (!project) notFound()
+  if (!canEditFloorPlans(tenant.role)) notFound()
 
   return (
     <div className="mx-auto max-w-xl">

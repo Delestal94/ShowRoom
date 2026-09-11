@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
+import { canEditFloorPlans } from '@/modules/tenancy/permissions'
 import { getProject } from '@/modules/projects/project-service'
 import {
   createFloorPlan,
@@ -33,6 +34,12 @@ export async function POST(
     tenant = await requireCurrentTenant()
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (!canEditFloorPlans(tenant.role)) {
+    return NextResponse.json(
+      { error: 'Tu rol no puede crear ni editar plantas' },
+      { status: 403 }
+    )
   }
 
   const project = await getProject(tenant.tenantId, params.projectId)
