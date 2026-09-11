@@ -16,6 +16,18 @@ export function CreateFloorPlanForm({ projectId }: { projectId: string }) {
 
   const pickFile = (selected: File | null) => {
     if (!selected) return
+    // El atributo `accept` del input sólo filtra el selector de archivos: no
+    // bloquea un archivo soltado por drag & drop. Sin esta validación, un
+    // PDF pasa el formulario entero y recién falla en el editor, con un
+    // error que no dice qué lo causó.
+    if (!selected.type.startsWith('image/')) {
+      setError(
+        selected.type === 'application/pdf'
+          ? 'Ese archivo es un PDF. Por ahora sólo se aceptan imágenes: exportá la página del plano a PNG o JPG y subí eso.'
+          : 'Ese archivo no es una imagen. Subí un PNG, JPG o WebP.'
+      )
+      return
+    }
     if (selected.size > 25 * 1024 * 1024) {
       setError('El archivo pesa demasiado (máx 25MB)')
       return

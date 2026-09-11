@@ -5,6 +5,7 @@ import { requireCurrentTenant } from '@/modules/tenancy/current-tenant'
 import { getProject } from '@/modules/projects/project-service'
 import { listFloorPlansByProject } from '@/modules/floor-plans/floor-plan-service'
 import { ButtonLink } from '@/components/ui/button'
+import { DeleteFloorPlanButton } from '@/components/plan3d/delete-floor-plan-button'
 
 export const metadata: Metadata = { title: 'Plano a 3D' }
 
@@ -72,15 +73,18 @@ export default async function PlanoTo3DListPage({
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-medium text-fg">{plan.name}</span>
-                  <span
-                    className={
-                      plan.status === 'published'
-                        ? 'shrink-0 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success'
-                        : 'shrink-0 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning'
-                    }
-                  >
-                    {STATUS_LABEL[plan.status] ?? plan.status}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span
+                      className={
+                        plan.status === 'published'
+                          ? 'rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success'
+                          : 'rounded-full bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning'
+                      }
+                    >
+                      {STATUS_LABEL[plan.status] ?? plan.status}
+                    </span>
+                    <DeleteFloorPlanButton projectId={params.projectId} planId={plan.id} />
+                  </div>
                 </div>
                 {plan.level !== null && (
                   <p className="mt-1 text-sm text-fg-muted">Piso {plan.level}</p>
