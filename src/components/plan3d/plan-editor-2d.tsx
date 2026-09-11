@@ -48,23 +48,53 @@ export function PlanEditor2D({
   const [calibrationStart, setCalibrationStart] = useState<Point | null>(null)
   const [cursor, setCursor] = useState<Point | null>(null)
   const [shiftHeld, setShiftHeld] = useState(false)
-  const [renderedWidth, setRenderedWidth] = useState(0)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const panRef = useRef<{ x: number; y: number } | null>(null)
+  const hasFitRef = useRef(false)
 
   // Un píxel de pantalla, expresado en píxeles de la imagen: mantiene los
   // trazos y los radios de snap con grosor constante a cualquier zoom.
   const unit =
-    renderedWidth > 0 ? model.imageWidth / renderedWidth / view.zoom : 1
+    containerSize.width > 0 ? model.imageWidth / containerSize.width / view.zoom : 1
+
+  /** Centra el plano entero en el contenedor, a la escala que quepa entero. */
+  const fitToContainer = useCallback(() => {
+    const { width, height } = containerSize
+    if (!width || !height || !model.imageWidth || !model.imageHeight) return
+    const margin = 32
+    const zoom = Math.min(
+      (width - margin) / model.imageWidth,
+      (height - margin) / model.imageHeight,
+      4
+    )
+    setView({
+      zoom,
+      x: (width - model.imageWidth * zoom) / 2,
+      y: (height - model.imageHeight * zoom) / 2,
+    })
+  }, [containerSize, model.imageWidth, model.imageHeight])
 
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const observer = new ResizeObserver(([entry]) => {
-      setRenderedWidth(entry.contentRect.width)
+      setContainerSize({ width: entry.contentRect.width, height: entry.contentRect.height })
     })
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // Encuadra el plano una sola vez, apenas se conocen el tamaño del
+  // contenedor y el de la imagen. Sin esto, el plano arranca dibujado a su
+  // resolución nativa (miles de píxeles) dentro de un panel chico: sólo se
+  // ve una esquina, ampliada de forma irreconocible.
+  useEffect(() => {
+    if (hasFitRef.current) return
+    if (!containerSize.width || !containerSize.height) return
+    if (!model.imageWidth || !model.imageHeight) return
+    hasFitRef.current = true
+    fitToContainer()
+  }, [containerSize, model.imageWidth, model.imageHeight, fitToContainer])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -191,17 +221,28 @@ export function PlanEditor2D({
   }
 
   const handleWheel = (e: React.WheelEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
-    setView((v) => {
-      const zoom = Math.min(12, Math.max(0.4, v.zoom * factor))
-      const applied = zoom / v.zoom
-      // Mantiene fijo el punto bajo el cursor mientras se acerca.
-      const ox = e.clientX - rect.left
-      const oy = e.clientY - rect.top
-      return { zoom, x: ox - (ox - v.x) * applied, y: oy - (oy - v.y) * applied }
-    })
+    // El gesto de pellizco de un trackpad llega como wheel + ctrlKey (así lo
+    // sintetizan Chrome, Firefox y Safari) — es la única señal confiable
+    // para distinguir "zoom" de "scroll para paneo" sin un mouse de por
+    // medio. Un mouse común manda wheel sin ctrlKey: con esta convención
+    // (la misma que Figma o Google Maps) su rueda panea, y Ctrl+rueda
+    // acerca — se avisa en el HUD para quien no lo conozca.
+    if (e.ctrlKey || e.metaKey) {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+      setView((v) => {
+        const zoom = Math.min(12, Math.max(0.05, v.zoom * factor))
+        const applied = zoom / v.zoom
+        // Mantiene fijo el punto bajo el cursor mientras se acerca.
+        const ox = e.clientX - rect.left
+        const oy = e.clientY - rect.top
+        return { zoom, x: ox - (ox - v.x) * applied, y: oy - (oy - v.y) * applied }
+      })
+      return
+    }
+
+    setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
   }
 
   const scale = model.pxPerMeter ?? 0
@@ -324,6 +365,12 @@ export function PlanEditor2D({
         </g>
       </svg>
 
+      <div className="pointer-events-none absolute left-3 top-3">
+        <span className="rounded-full border border-border bg-bg/80 px-2.5 py-1 text-[11px] text-fg-subtle backdrop-blur">
+          Scroll para mover · Ctrl+scroll para zoom
+        </span>
+      </div>
+
       <div className="pointer-events-none absolute bottom-3 left-3 flex gap-2">
         <span className="rounded-full border border-border bg-bg/80 px-2.5 py-1 text-[11px] text-fg-muted backdrop-blur">
           {Math.round(view.zoom * 100)}%
@@ -342,7 +389,7 @@ export function PlanEditor2D({
 
       <button
         type="button"
-        onClick={() => setView({ zoom: 1, x: 0, y: 0 })}
+        onClick={fitToContainer}
         className="absolute bottom-3 right-3 rounded-full border border-border bg-bg/80 px-2.5 py-1 text-[11px] text-fg-muted backdrop-blur transition-colors hover:text-fg"
       >
         Centrar vista
